@@ -25,6 +25,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from fastapi import HTTPException  # noqa: E402
+
 from backend import app as api  # noqa: E402
 from backend import config, pipeline  # noqa: E402
 
@@ -78,15 +80,34 @@ def record(t: dict) -> dict:
     }
 
 
+def from_full_list(recorded: dict) -> bool:
+    """False if the archive's search was down and the server worked from an older or partial list."""
+    return (recorded["search"].get("archive") or {}).get("source") not in ("stale", "incomplete")
+
+
 def main() -> None:
     wanted = set(sys.argv[1:])
     OUT.mkdir(parents=True, exist_ok=True)
+    skipped = []
     for t in read_targets():
         if wanted and t["id"] not in wanted:
             continue
         print(f"{t['id']}:", flush=True)
         started = time.time()
-        bundle = pipeline._clean(record(t))
+        # A recording must show the field as it is in the archive today. When the
+        # archive cannot be asked, keep the file that is there and say so.
+        try:
+            recorded = record(t)
+        except HTTPException as exc:
+            print(f"   not written, the server could not answer: {exc.detail}", flush=True)
+            skipped.append(t["id"])
+            continue
+        if not from_full_list(recorded):
+            print("   not written: the archive's image search is down, so this would be a recording "
+                  "of an older or partial list of images. Try again later.", flush=True)
+            skipped.append(t["id"])
+            continue
+        bundle = pipeline._clean(recorded)
         text = ("/* Recorded answers of the SPHEREx Blink Tree server for one example target.\n"
                 "   Made by scripts/build_demo.py; do not edit by hand. */\n"
                 "window.BLINK_DEMO = window.BLINK_DEMO || {};\n"
@@ -94,6 +115,8 @@ def main() -> None:
         path = OUT / f"{t['id']}.js"
         path.write_text(text, encoding="utf-8", newline="\n")
         print(f"   wrote {path.name}: {path.stat().st_size / 1e6:.2f} MB in {time.time() - started:.0f}s", flush=True)
+    if skipped:
+        sys.exit("Not recorded: " + ", ".join(skipped))
 
 
 if __name__ == "__main__":

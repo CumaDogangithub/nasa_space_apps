@@ -14,6 +14,7 @@ import re
 import struct
 import threading
 import time
+from contextlib import asynccontextmanager
 
 import numpy as np
 import requests
@@ -22,9 +23,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
-from . import archive, catalogs, config, flags, pipeline, spectra
+from . import archive, catalogs, config, flags, housekeeping, pipeline, spectra
 
-app = FastAPI(title="SPHEREx Blink Tree", version="0.1.0")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    housekeeping.start()                 # keeps the disk cache below its limit while the server runs
+    yield
+
+
+app = FastAPI(title="SPHEREx Blink Tree", version="0.1.0", lifespan=_lifespan)
 # The page may be opened from disk (file://) or embedded elsewhere, so the
 # read-only API is open to any origin.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
@@ -102,6 +110,8 @@ def health() -> dict:
         "bands": {str(k): v for k, v in config.BANDS.items()},
         "fov_range": [pipeline.MIN_FOV, pipeline.MAX_FOV],
         "per_epoch": pipeline.DEFAULT_PER_EPOCH,
+        "request_budget_mb": pipeline.REQUEST_BUDGET_MB,
+        "cache_limit_mb": config.CACHE_LIMIT_MB,
     }
 
 

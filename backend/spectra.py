@@ -156,7 +156,7 @@ def position_at(track: tuple[float, float, float, float, float], mjd: float) -> 
     ra0, dec0, epoch, pmra, pmdec = track
     dt = 2000.0 + (mjd - 51544.5) / 365.25 - epoch
     dec = dec0 + pmdec * dt / 3.6e6
-    ra = ra0 + pmra * dt / 3.6e6 / math.cos(math.radians(dec0))
+    ra = ra0 + pmra * dt / 3.6e6 / max(1e-6, math.cos(math.radians(dec0)))
     return ra % 360.0, dec
 
 
@@ -207,9 +207,12 @@ def build_spectrum(ra: float, dec: float,
 
     with _lock:                                   # one spectrum at a time keeps the downloads orderly
         if path.exists():
-            result = json.loads(path.read_text(encoding="utf-8"))
-            result["cached"] = True
-            return result
+            try:
+                result = json.loads(path.read_text(encoding="utf-8"))
+                result["cached"] = True
+                return result
+            except (OSError, ValueError):             # removed meanwhile or cut short: measure again
+                pass
 
         selected = _thin(exposures)
         headers = archive.load_headers(selected, progress)

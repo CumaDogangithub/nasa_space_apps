@@ -101,7 +101,8 @@
       'ctl.limit': 'Exposures per visit, at most',
       'ctl.limit.all': 'all',
       'ctl.limit.title': 'The most exposures of one detector that are read for each visit. Fewer load faster, more give a deeper ' +
-        'image. Most of the sky has 15 to 30 per visit; fields near the ecliptic poles have hundreds.',
+        'image. Most of the sky has 15 to 30 per visit; fields near the ecliptic poles have hundreds. ' +
+        'If a choice would mean reading too much at once, the server lowers it and “This field” shows the number used.',
       'ctl.view': 'View',
       'mode.blink': 'Blink',
       'mode.diff': 'Difference',
@@ -385,7 +386,8 @@
       'ctl.limit': 'Dönem başına en çok poz',
       'ctl.limit.all': 'hepsi',
       'ctl.limit.title': 'Her dönem için bir dedektörden okunacak en çok poz sayısı. Azı daha hızlı yüklenir, çoğu daha derin ' +
-        'görüntü verir. Gökyüzünün çoğunda dönem başına 15–30 poz vardır; ekliptik kutuplarına yakın alanlarda yüzlerce.',
+        'görüntü verir. Gökyüzünün çoğunda dönem başına 15–30 poz vardır; ekliptik kutuplarına yakın alanlarda yüzlerce. ' +
+        'Seçim bir seferde çok fazla veri okumayı gerektirirse sunucu sayıyı düşürür; kullanılan sayı “Bu alan” bölümünde görünür.',
       'ctl.view': 'Görünüm',
       'mode.blink': 'Film',
       'mode.diff': 'Fark',

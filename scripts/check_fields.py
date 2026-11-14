@@ -98,9 +98,16 @@ def check_field(server: Server, name: str, ra: float, dec: float, band: int, pro
         fail(f"frames D{band}", error)
         line += " frames FAILED |"
     else:
-        line += f" D{band}: {frames['n_frames']:2d} frames from {frames['n_used']:3d}/{frames['n_found']:3d} {took:5.1f}s |"
-        if frames["n_found"] >= 4 and frames["n_used"] < 0.5 * frames["n_found"]:
-            fail(f"frames D{band}", f"only {frames['n_used']} of {frames['n_found']} exposures could be read")
+        # How many exposures the server set out to read: all of this detector's, or, where
+        # a visit holds more than the limit per visit (the deep fields), that many of it.
+        limit = frames.get("per_epoch") or 0
+        counts = [e["counts"].get(str(band), 0) for e in found["epochs"]]
+        asked = sum(min(c, limit) if limit else c for c in counts)
+        line += f" D{band}: {frames['n_frames']:2d} frames from {frames['n_used']:3d}/{asked:3d} {took:5.1f}s |"
+        if asked >= 4 and frames["n_used"] < 0.5 * asked:
+            fail(f"frames D{band}", f"only {frames['n_used']} of {asked} exposures could be read")
+        if frames.get("thinned") and frames["n_used"] > asked:
+            fail(f"frames D{band}", f"{frames['n_used']} exposures used, more than the limit of {limit} per visit allows ({asked})")
 
     stars, took, error = server.get("/api/gaia", ra=ra, dec=dec, fov=180)
     if error:

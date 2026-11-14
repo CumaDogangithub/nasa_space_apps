@@ -6,6 +6,7 @@ A new SPHEREx data release only needs its collection name added to
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,4 +33,6 @@ BANDS: dict[int, tuple[float, float]] = {
 }
 
 SIA_CACHE_HOURS = 24      # how long a position search is reused (new SPHEREx data arrive weekly)
+# Disk cache limit in megabytes; the oldest files go when it is exceeded (0: never clean up).
+CACHE_LIMIT_MB = float(os.environ.get("BLINK_CACHE_MB", "3000"))
 DOWNLOAD_THREADS = 32

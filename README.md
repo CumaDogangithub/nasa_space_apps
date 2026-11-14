@@ -12,6 +12,9 @@ of its middle branch blinks. The page uses flat colours taken from the team's ba
 apart: blue for whatever is selected, violet for the team's name and the main button, orange for
 the field on the map, on a night that is almost black.
 
+**Project report** (7 pages): [English](SPHEREx-Blink-Tree-Report-EN.pdf) ·
+[Türkçe](SPHEREx-Blink-Tree-Rapor-TR.pdf)
+
 ## What it does
 
 - **Blink**: aligned images of the same field, one per SPHEREx visit ("epoch"), played in a loop.
@@ -46,10 +49,13 @@ the field on the map, on a night that is almost black.
   are read for each frame: 10, 20, 40 (the default), 80, 160 or all. Most of the sky has 15–30 per
   visit, so the default changes nothing there. In the deep fields near the ecliptic poles one visit
   can hold hundreds; there the default brings the frames in about 40 seconds instead of five minutes,
-  and *all* is one click away for the deepest image.
+  and *all* is one click away for a deeper image. One request is held to about 400 MB of pixels: if
+  the choice would need more (a wide field in a deep region), the server lowers the number per visit
+  until it fits (never below two, which a frame needs), and the page shows the number that was used.
 - **Coordinates or names**: decimal degrees, `08h55m10.8s -07d14m42.5s`, or a name looked up in SIMBAD.
-  For objects with a known proper motion the field is centred where the object is *now*, and a marker
-  shows its predicted position in every frame.
+  For objects with a known proper motion the field is centred where the object is in the years of
+  the SPHEREx survey (not where the catalogue saw it), and a marker shows its predicted position
+  in every frame.
 - **Shareable, embeddable links**: the whole view is in the URL.
 - **English and Turkish**: the **EN / TR** switch in the top corner changes every text of the page,
   including the plot labels, error messages and the explanations of the quality flags. The view on
@@ -87,6 +93,35 @@ The first view of a new field takes roughly 5–30 seconds, depending on the fie
 many detectors are read. Results are cached in `cache/`, so repeat views are instant. The two deep
 fields near the ecliptic poles are the exception: the archive lists up to 30,000 images for a spot
 there, and that list alone takes it one to two minutes the first time a position is asked.
+
+## Checking it
+
+| Script | What it checks | Needs |
+|---|---|---|
+| `scripts/check_logic.py` | The server's own logic: visits, thinning, the download budget, the footprint test, the cache keeper | nothing; a few seconds |
+| `scripts/check_fields.py` | A running server on 21 fields all over the sky: search, frames, Gaia stars, spectra, wide fields, all detectors, limits, flags (`--quick`: the five example targets) | the server and the archive |
+| `scripts/check_astrometry.py` | Positions in the frames against Gaia DR3 | the archive |
+| `scripts/check_flux.py` | Measured brightness against 2MASS | the archive |
+
+## Putting it on a server
+
+```bash
+BLINK_CACHE_MB=5000 .venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
+```
+
+- **One process.** Run a single uvicorn worker. It serves many visitors at once with threads, and the
+  progress bars and the locks that stop two visitors from building the same frames twice live in
+  that one process.
+- **Disk.** Everything read from the archive is kept in `cache/` so that repeat views are instant.
+  A cache keeper removes the oldest files once the folder passes `BLINK_CACHE_MB` megabytes
+  (3000 by default, `0` to switch it off). The lists of images go last, because they are what the
+  tool falls back on when the archive's search is down.
+- **Load.** Every request is bounded: at most 600 exposures for a spectrum and about 400 MB of
+  pixels for the frames of one view. Behind a public address, put the usual reverse proxy (nginx,
+  Caddy) in front for HTTPS and for a limit on requests per visitor.
+- **Outgoing connections** the server needs: `irsa.ipac.caltech.edu` (image search),
+  `nasa-irsa-spherex.s3.amazonaws.com` (pixels), `gea.esac.esa.int` (Gaia) and the SIMBAD servers
+  (names). The browser itself loads the sky map library from jsDelivr and the maps from IRSA.
 
 ## URL parameters
 
@@ -153,8 +188,7 @@ from Amazon S3. On the evening of 14 November 2026 that service refused about ev
 
 `scripts/check_fields.py` asks a running server for 21 fields all over the sky (the five example
 targets, both ecliptic and celestial poles, the RA 0/360 boundary, the Galactic centre, bright and
-empty fields) and reports anything that fails: search, frames, Gaia stars, spectra at and off the
-centre, wide fields, all detectors together and the quality flags.
+empty fields) and reports anything that fails; see *Checking it* above.
 
 ### Spectra without a spectrograph
 
@@ -209,15 +243,17 @@ SPHEREx pixel (6.15″). The sky map draws the blink field from the same coordin
 
 ## Offline demo data
 
-`web/demo/<target>.js` holds, for each example target, exactly what the server would answer (3.9 MB
-in total). The page uses these files when it cannot reach the server, or when `?demo=1` is added to
+`web/demo/<target>.js` holds, for each example target, exactly what the server would answer (about
+4 MB in total). The page uses these files when it cannot reach the server, or when `?demo=1` is added to
 the address. After a new data release, refresh them with
 
 ```bash
 .venv/Scripts/python scripts/build_demo.py
 ```
 
-which takes a few minutes the first time because every detector of every target is read.
+which takes a few minutes the first time because every detector of every target is read. If the
+archive's image search is down at that moment, the script leaves the existing file of a target as it
+is and says so, rather than record an older or partial list of images.
 
 ## Adding a new data release
 
@@ -239,6 +275,7 @@ backend/    archive.py   image search and S3 range reads
             flags.py     quality-flag maps and the exposure list
             remote.py    reads parts of a remote FITS file through byte ranges
             catalogs.py  Gaia DR3 stars for the overlay
+            housekeeping.py  keeps the disk cache below its limit
             data/        wavelength lookup tables of the six detectors
             app.py       web API, serves the front end
             releases.json
@@ -256,8 +293,11 @@ scripts/    poc.py       command-line version that writes a GIF
             build_wavelength_tables.py  extracts the detectors' wavelength tables
             build_demo.py        records the example targets for the offline demo
             check_fields.py      field test: asks a running server for fields all over the sky
-report/     SPHEREx-Blink-Tree-Report-EN.pdf, SPHEREx-Blink-Tree-Rapor-TR.pdf   the 7-page project report
-            template.html, text_en.json, text_tr.json, build.py   one layout, one text file per language
+            check_logic.py       quick offline checks of the server's logic
+SPHEREx-Blink-Tree-Report-EN.pdf, SPHEREx-Blink-Tree-Rapor-TR.pdf   the 7-page project report (copies of the two below)
+report/     SPHEREx-Blink-Tree-Report-EN.pdf, SPHEREx-Blink-Tree-Rapor-TR.pdf   the report as built
+            template.html, text_en.json, text_tr.json, build.py   one layout, one text file per language;
+                         build.py makes the PDFs and refreshes the copies in the project folder
             figures/, figures.cjs   screenshots of the running tool and the script that takes them
 ```
 
@@ -274,8 +314,9 @@ report/     SPHEREx-Blink-Tree-Report-EN.pdf, SPHEREx-Blink-Tree-Rapor-TR.pdf   
 
 Working: search by coordinates or name, per-detector epoch stacks, blink / difference / sum, field of view,
 sky map with the 102-channel SPHEREx cube and exposure footprints, Gaia DR3 overlay, spectra and light
-curves on a click, quality flags and exposure list, URL parameters, embed mode, disk cache, an
-offline demo of the five example targets, and an English and Turkish interface.
+curves on a click, quality flags and exposure list, URL parameters, embed mode, a disk cache that
+is kept below a limit, an offline demo of the five example targets, and an English and Turkish
+interface.
 
 Ideas not built yet: using the quality flags to clean the spectra, labelling known asteroids, and
 reading large fields faster.

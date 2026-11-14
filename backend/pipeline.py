@@ -32,6 +32,7 @@ EPOCH_WINDOW = 30.0                 # ... into windows of about this length
 MIN_EXPOSURES_PER_FRAME = 2
 DEFAULT_PER_EPOCH = 40              # most exposures of one detector read for one frame, unless asked otherwise
 MAX_PER_EPOCH = 5000
+REQUEST_BUDGET_MB = 400             # most pixel data read for the frames of one request, all detectors together
 SATURATION_SIGMA = 50.0             # "very bright" threshold used to recognise saturated cores
 
 _MJD0 = datetime(1858, 11, 17)
@@ -256,6 +257,26 @@ def thin_per_epoch(exposures: list[archive.Exposure], epochs: list[tuple[float, 
     return sorted(kept, key=lambda e: (e.mjd, e.band))
 
 
+def select_exposures(exposures: list[archive.Exposure], epochs: list[tuple[float, float]], band: int,
+                     fov: float, per_epoch: int, share: float = 1.0) -> tuple[list[archive.Exposure], list[archive.Exposure], int]:
+    """The exposures of one detector that go into its frames: (selected, all found, limit used).
+
+    ``per_epoch`` is the most per visit that was asked for (0: all). If reading
+    that many would take more than this detector's ``share`` of
+    REQUEST_BUDGET_MB, the limit is lowered until it fits: a wide field in the
+    deep survey regions would otherwise download gigabytes for one request.
+    """
+    found = [e for e in exposures if e.band == band]
+    selected = thin_per_epoch(found, epochs, per_epoch)
+    rows = 2 * cutout_half_size(clamp_fov(fov)) + 1
+    most = int(REQUEST_BUDGET_MB * 1e6 * share // (rows * config.DETECTOR_SIZE * 4))
+    if len(selected) > most:
+        visits = len({epoch_index(epochs, e.mjd) for e in found}) or 1
+        per_epoch = max(MIN_EXPOSURES_PER_FRAME, most // visits)
+        selected = thin_per_epoch(found, epochs, per_epoch)
+    return selected, found, per_epoch
+
+
 def summarize(exposures: list[archive.Exposure]) -> dict:
     """What the archive holds for a position: epochs and exposure counts per band."""
     epochs = cluster_epochs(e.mjd for e in exposures)
@@ -300,12 +321,10 @@ def _frame_stats(cube: np.ndarray, meta: list[dict]) -> dict:
 
 
 def _compute_band(ra: float, dec: float, fov: float, band: int,
-                  exposures: list[archive.Exposure], progress: archive.Progress | None,
-                  per_epoch: int = 0) -> dict:
+                  exposures: list[archive.Exposure], selected: list[archive.Exposure],
+                  progress: archive.Progress | None) -> dict:
     timing: dict[str, float] = {}
     epochs = cluster_epochs(e.mjd for e in exposures)
-    found = [e for e in exposures if e.band == band]
-    selected = thin_per_epoch(found, epochs, per_epoch)
     grid = make_grid(ra, dec, fov)
     half = cutout_half_size(grid.fov)
 
@@ -379,7 +398,7 @@ def _compute_band(ra: float, dec: float, fov: float, band: int,
         "frames": cube,
         "epochs": meta,
         "stats": _frame_stats(cube, meta),
-        "n_found": len(found),
+        "n_found": len(selected),
         "n_used": len(layers),
         "timing": timing,
         "exposures": exposure_rows,
@@ -387,31 +406,46 @@ def _compute_band(ra: float, dec: float, fov: float, band: int,
     }
 
 
-_locks: dict[str, threading.Lock] = {}
-_locks_guard = threading.Lock()
+# One of a fixed set of locks per cache key: two requests for the same frames wait for each
+# other, and the set never grows however many fields are asked for.
+_locks = [threading.Lock() for _ in range(64)]
 
 
 def _lock_for(key: str) -> threading.Lock:
-    with _locks_guard:
-        return _locks.setdefault(key, threading.Lock())
+    return _locks[int(key[:8], 16) % len(_locks)]
+
+
+def _stored_frames(path) -> dict | None:
+    """Frames stored earlier, or None if there are none or the file cannot be read."""
+    if not path.exists():
+        return None
+    try:
+        with np.load(path, allow_pickle=False) as z:
+            result = json.loads(str(z["meta"]))
+            result["frames"] = z["frames"]
+        return result
+    except (OSError, ValueError, KeyError):       # removed meanwhile or cut short: build them again
+        return None
 
 
 def build_band(ra: float, dec: float, fov: float, band: int,
                progress: archive.Progress | None = None,
-               per_epoch: int = DEFAULT_PER_EPOCH) -> dict:
+               per_epoch: int = DEFAULT_PER_EPOCH, share: float = 1.0) -> dict:
     """Aligned epoch stacks of one detector array around (ra, dec), cached on disk.
 
     Frames are float32 [epoch, row, col] in MJy/sr with the local sky level
     removed; row 0 is north, column 0 is east. NaN means no data and +inf
     means saturated. ``per_epoch`` is the most exposures read for one frame
-    (0: all); ``thinned`` in the result says whether that left any out.
+    (0: all) and ``share`` this detector's part of the request's download
+    budget; ``thinned`` in the result says whether exposures were left out
+    and ``per_epoch`` the limit that was really used.
     """
     t = time.time()
     exposures = archive.search(ra, dec)
     search_time = time.time() - t
-    mine = [e for e in exposures if e.band == band]
     epochs = cluster_epochs(e.mjd for e in exposures)
-    thinned = len(thin_per_epoch(mine, epochs, per_epoch)) < len(mine)
+    selected, mine, per_epoch = select_exposures(exposures, epochs, band, fov, per_epoch, share)
+    thinned = len(selected) < len(mine)
     fingerprint = f"{len(exposures)}:{len(mine)}:{max((e.mjd for e in exposures), default=0):.4f}"
     tag = f"{ra:.5f}|{dec:.5f}|{clamp_fov(fov):.1f}|{band}|{fingerprint}|v{PIPELINE_VERSION}"
     if thinned:                                   # a limit that leaves nothing out gives the same frames as no limit
@@ -420,14 +454,12 @@ def build_band(ra: float, dec: float, fov: float, band: int,
     path = config.CACHE_DIR / "frames" / f"{key}.npz"
 
     with _lock_for(key):
-        if path.exists():
-            with np.load(path, allow_pickle=False) as z:
-                result = json.loads(str(z["meta"]))
-                result["frames"] = z["frames"]
+        result = _stored_frames(path)
+        if result is not None:
             result["cached"] = True
             result["timing"] = {"search": search_time}
         else:
-            result = _compute_band(ra, dec, fov, band, exposures, progress, per_epoch)
+            result = _compute_band(ra, dec, fov, band, exposures, selected, progress)
             result["timing"]["search"] = search_time
             meta = {k: v for k, v in result.items() if k != "frames"}
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -501,7 +533,7 @@ def build(ra: float, dec: float, fov: float, bands: list[int],
                 # headers are quick; weight them as a fifth of a band's work
                 part = (0.2 * done / total) if label == "headers" else (0.2 + 0.8 * done / total)
                 progress(f"D{band} {label}", int(1000 * (i + part) / len(bands)), 1000)
-        results.append(build_band(ra, dec, fov, band, sub, per_epoch))
+        results.append(build_band(ra, dec, fov, band, sub, per_epoch, 1.0 / len(bands)))
     return results[0] if len(results) == 1 else combine(results)
 
 

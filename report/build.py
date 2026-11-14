@@ -12,6 +12,9 @@ The pictures in ``figures/<lang>/`` are screenshots of the running tool, taken
 by ``figures.cjs``. The report must stay within PAGES pages; the build fails if
 the PDF has a different number.
 
+A copy of each finished PDF is put in the project folder (one level up), where
+a visitor of the repository looks first, so that copy is always the current one.
+
 Template syntax: ``{{ a.b }}`` puts in a text, ``{% for x in a.list %} ...
 {% endfor x %}`` repeats a block for every item of a list.
 """
@@ -20,11 +23,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+PROJECT = HERE.parent                # the PDFs are copied here as well
 PAGES = 7
 BROWSERS = [
     os.environ.get("CHROME", ""),
@@ -91,6 +96,8 @@ def build(lang: str, with_pdf: bool) -> None:
     print(f"{lang}: wrote {pdf.name}, {pages} pages, {pdf.stat().st_size / 1e6:.1f} MB")
     if pages != PAGES:
         raise SystemExit(f"{lang}: the report must have {PAGES} pages, the PDF has {pages}")
+    shutil.copyfile(pdf, PROJECT / pdf.name)          # only a PDF that passed the page check replaces the copy
+    print(f"{lang}: copied {pdf.name} to the project folder")
 
 
 if __name__ == "__main__":

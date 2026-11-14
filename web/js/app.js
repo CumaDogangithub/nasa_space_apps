@@ -32,6 +32,11 @@
   };
 
   const memo = new Map();
+  /* Keep an answer of the server for the next time, forgetting the oldest once there are many. */
+  function remember(map, key, value) {
+    map.set(key, value);
+    if (map.size > 24) map.delete(map.keys().next().value);
+  }
   const gaiaMemo = new Map();
   const FAST_MOVER = 150;                // proper motion in mas/yr above which a Gaia star is highlighted
   const ARROW_YEARS = 5;                 // length of a fast mover's arrow, in years of motion
@@ -113,7 +118,7 @@
   function propagate(t, year) {
     const dt = year - t.epoch;
     const dec = t.dec + t.pmdec * dt / 3.6e6;
-    const ra = t.ra + t.pmra * dt / 3.6e6 / Math.cos(t.dec * D2R);
+    const ra = t.ra + t.pmra * dt / 3.6e6 / Math.max(1e-6, Math.cos(t.dec * D2R));
     return { ra: (ra % 360 + 360) % 360, dec: dec };
   }
 
@@ -416,7 +421,7 @@
         data = await fetchFrames(state.ra, state.dec, state.fov, state.bands, state.limit, (p) => {
           if (token === loadToken && p.label) showProgress(p.fraction, progressText(p.label));
         });
-        memo.set(key, data);
+        remember(memo, key, data);
       } catch (err) {
         if (token !== loadToken) return;
         hideProgress();
@@ -799,7 +804,7 @@
       '&limit=' + state.limit + '&job=' + job)
       .then(decodeFlags)
       .then((data) => {
-        flagMemo.set(key, data);
+        remember(flagMemo, key, data);
         if (token === flagToken) done(data);
       })
       .catch((err) => {
@@ -919,7 +924,7 @@
     setGaiaNote(T('gaia.loading'));
     draw();
     getJSON('/api/gaia?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov).then((g) => {
-      gaiaMemo.set(key, g);
+      remember(gaiaMemo, key, g);
       if (token === gaiaToken) done(g);
     }).catch((err) => {
       if (token === gaiaToken) setGaiaNote(T('gaia.failed') + explain(err));
@@ -1652,7 +1657,7 @@
   } else {
     // Is the server there? If not, fall back to the recorded example targets.
     const probe = new AbortController();
-    const giveUp = setTimeout(() => probe.abort(), 2500);
+    const giveUp = setTimeout(() => probe.abort(), 5000);   // a slow line is not a missing server
     fetch(API + '/api/health', { signal: probe.signal })
       .then((r) => { if (!r.ok) throw new Error('no server'); })
       .catch(() => { demo = true; showDemoBanner(); })

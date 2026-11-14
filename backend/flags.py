@@ -65,25 +65,30 @@ def build_flags(ra: float, dec: float, fov: float, bands: list[int],
     """
     exposures = archive.search(ra, dec)
     epochs = pipeline.cluster_epochs(e.mjd for e in exposures)
-    found = [e for e in exposures if e.band in bands]
-    selected = []
+    found, selected, limits = [], [], []
     for band in sorted(set(bands)):                 # the same exposures as the blink frames
-        selected += pipeline.thin_per_epoch([e for e in found if e.band == band], epochs, per_epoch)
+        chosen, mine, used = pipeline.select_exposures(exposures, epochs, band, fov, per_epoch, 1.0 / len(set(bands)))
+        found += mine
+        selected += chosen
+        limits.append(used)
     fingerprint = f"{len(exposures)}:{len(found)}:{max((e.mjd for e in exposures), default=0):.4f}"
     tag = f"{ra:.5f}|{dec:.5f}|{pipeline.clamp_fov(fov):.1f}|{sorted(bands)}|{fingerprint}|v{FLAGS_VERSION}"
     if len(selected) < len(found):
-        tag += f"|max{per_epoch}"
+        tag += f"|max{limits}"
     key = hashlib.sha1(tag.encode()).hexdigest()[:20]
     path = config.CACHE_DIR / "flags" / f"{key}.npz"
 
     with _lock:
         if path.exists():
-            with np.load(path, allow_pickle=False) as z:
-                result = json.loads(str(z["meta"]))
-                result["fraction"] = z["fraction"]
-                result["common"] = z["common"]
-            result["cached"] = True
-            return result
+            try:
+                with np.load(path, allow_pickle=False) as z:
+                    result = json.loads(str(z["meta"]))
+                    result["fraction"] = z["fraction"]
+                    result["common"] = z["common"]
+                result["cached"] = True
+                return result
+            except (OSError, ValueError, KeyError):   # removed meanwhile or cut short: read the flags again
+                pass
 
         grid = pipeline.make_grid(ra, dec, fov)
         half = pipeline.cutout_half_size(grid.fov)

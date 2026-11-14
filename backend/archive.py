@@ -19,6 +19,7 @@ import re
 import threading
 import time
 import warnings
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -165,11 +166,13 @@ class ArchiveUnavailable(RuntimeError):
     """The image search does not answer and nothing stored earlier covers the position."""
 
 
+STORED_LISTS = 12      # image lists kept parsed in memory; one of a deep field has 30,000 rows
+
 _search_lock = threading.Lock()
-_search_info: dict[str, dict] = {}                      # position -> how its image list was obtained
+_search_info: OrderedDict[str, dict] = OrderedDict()   # position -> how its image list was obtained
 _resting_until = 0.0                                    # the service failed completely: do not ask before this time
-_stored: dict[str, tuple[float, list[dict]]] = {}       # stored searches already parsed: file name -> (mtime, rows)
-_position_locks: dict[str, threading.Lock] = {}         # one question to the archive per position at a time
+_stored: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()   # parsed lists: file name -> (mtime, rows)
+_position_locks = [threading.Lock() for _ in range(64)]              # one question to the archive per position at a time
 
 
 def _ask_archive(ra: float, dec: float) -> list[Exposure]:
@@ -247,11 +250,17 @@ def footprint_contains(poly: list[float] | None, ra: float, dec: float) -> bool:
 def _stored_rows(path: Path) -> list[dict]:
     """A stored search, parsed once and then kept in memory."""
     mtime = path.stat().st_mtime
-    hit = _stored.get(path.name)
-    if hit and hit[0] == mtime:
-        return hit[1]
+    with _search_lock:
+        hit = _stored.get(path.name)
+        if hit and hit[0] == mtime:
+            _stored.move_to_end(path.name)
+            return hit[1]
     rows = json.loads(path.read_text(encoding="utf-8"))
-    _stored[path.name] = (mtime, rows)
+    with _search_lock:
+        _stored[path.name] = (mtime, rows)
+        _stored.move_to_end(path.name)
+        while len(_stored) > STORED_LISTS:
+            _stored.popitem(last=False)
     return rows
 
 
@@ -286,6 +295,8 @@ def _from_earlier_searches(ra: float, dec: float) -> dict[str, Exposure]:
 def _note(ra: float, dec: float, source: str) -> None:
     with _search_lock:
         _search_info[f"{ra:.5f}_{dec:+.5f}"] = {"source": source}
+        while len(_search_info) > 5000:
+            _search_info.popitem(last=False)
 
 
 def search_info(ra: float, dec: float) -> dict:
@@ -301,8 +312,7 @@ def search_info(ra: float, dec: float) -> dict:
 
 
 def _position_lock(name: str) -> threading.Lock:
-    with _search_lock:
-        return _position_locks.setdefault(name, threading.Lock())
+    return _position_locks[int(hashlib.sha1(name.encode()).hexdigest()[:8], 16) % len(_position_locks)]
 
 
 def _recent(cache: Path) -> list[Exposure] | None:
@@ -413,7 +423,10 @@ def load_header_bytes(exp: Exposure) -> bytes:
     """Primary + IMAGE header bytes of one file (cached on disk)."""
     path = _header_path(exp)
     if path.exists():
-        return path.read_bytes()
+        try:
+            return path.read_bytes()
+        except OSError:                                  # removed by the cache keeper meanwhile: fetch it again
+            pass
     size = HEADER_GUESS
     buf = get_range(exp.s3_url, 0, size - 1)
     while _split_headers(buf) is None:
@@ -491,7 +504,10 @@ def read_pixels(plan: CutPlan) -> np.ndarray:
     """IMAGE pixels of the planned window as float32 [y, x] (cached on disk)."""
     path = _pixel_path(plan)
     if path.exists():
-        return np.load(path)
+        try:
+            return np.load(path)
+        except (OSError, ValueError):                    # removed meanwhile or cut short: fetch it again
+            pass
     ny, nx = plan.shape
     first = plan.data_offset + (plan.y0 * _NPIX + plan.x0) * 4
     nbytes = ((ny - 1) * _NPIX + nx) * 4
@@ -574,9 +590,13 @@ def load_flags_directory(plan: CutPlan) -> dict:
     """
     start = plan.data_offset + IMAGE_BYTES               # FLAGS follows the IMAGE pixels
     path = _flags_directory_path(plan.exp)
+    buf = b""
     if path.exists():
-        buf = path.read_bytes()
-    else:
+        try:
+            buf = path.read_bytes()
+        except OSError:                                  # removed by the cache keeper meanwhile
+            pass
+    if not buf:
         buf = get_range(plan.exp.s3_url, start, start + FLAGS_HEAD_GUESS - 1)
     end = _find_end(buf, 0)
     if end < 0:
@@ -618,7 +638,10 @@ def read_flags(plan: CutPlan) -> np.ndarray:
     """FLAGS bit mask of the planned window as int32 [y, x] (cached on disk)."""
     path = _flags_path(plan)
     if path.exists():
-        return np.load(path)
+        try:
+            return np.load(path)
+        except (OSError, ValueError):                    # removed meanwhile or cut short: fetch it again
+            pass
     info = load_flags_directory(plan)
     directory = info["directory"]
     first = int(directory[plan.y0, 1])
