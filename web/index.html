@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SPHEREx Blink Tree</title>
   <meta name="description" content="Blink through NASA SPHEREx infrared images of any patch of sky to spot things that move or change.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23070a12'/%3E%3Cg fill='%23ffb454'%3E%3Ccircle cx='20' cy='9' r='4.2'/%3E%3Ccircle cx='8' cy='27' r='3.2'/%3E%3Ccircle cx='20' cy='31' r='3.2'/%3E%3Ccircle cx='32' cy='27' r='3.2'/%3E%3C/g%3E%3Cpath d='M20 13v14M20 16L9 24M20 16l11 8' stroke='%23ffb454' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -39,6 +40,32 @@
   </header>
 
   <main class="layout">
+    <section class="sky" id="sky">
+      <div class="sky-map" id="skymap"></div>
+      <div class="sky-bar">
+        <div class="segmented" id="sky-zoom">
+          <button type="button" data-zoom="sky">Whole sky</button>
+          <button type="button" data-zoom="scan">Scan area</button>
+          <button type="button" data-zoom="field">Field</button>
+        </div>
+        <button type="button" id="sky-blink" class="ghost" title="Blink the spot under the cross-hair at the centre of the map">Blink map centre</button>
+        <button type="button" id="sky-full" class="ghost" title="Show the map across the whole window (Esc to leave)">Full screen</button>
+      </div>
+      <label class="slider sky-wave">Map wavelength <output id="sky-wave-out"></output>
+        <input id="sky-wave" type="range" min="0" max="101" step="1">
+      </label>
+      <div class="sky-bar">
+        <select id="sky-survey" aria-label="Sky map survey"></select>
+        <label class="check"><input id="sky-feet" type="checkbox" checked> SPHEREx footprints</label>
+      </div>
+      <ul class="legend">
+        <li><span class="swatch field"></span><span>The field being blinked: the same patch of sky as the blink image.</span></li>
+        <li><span class="swatch feet"></span><span id="sky-feet-note">SPHEREx exposures of the epoch on screen.</span></li>
+        <li><span class="swatch cross">+</span><span>Point at either picture: a white cross marks the same spot on the other one.</span></li>
+      </ul>
+      <p class="hint">Drag to turn the sky, scroll to zoom. &ldquo;Field&rdquo; shows exactly the area of the blink image.</p>
+    </section>
+
     <section class="stage">
       <div class="viewer" id="viewer">
         <canvas id="view" aria-label="SPHEREx image of the selected field"></canvas>
@@ -113,11 +140,12 @@
 
   <footer class="foot">
     <p>Images: NASA SPHEREx mission (JPL/Caltech), served by the NASA/IPAC Infrared Science Archive. Positions: ESA Gaia DR3 and SIMBAD.
-       Built for the NASA Space Apps Challenge.</p>
+       Sky map: Aladin Lite (CDS, Strasbourg). Built for the NASA Space Apps Challenge.</p>
     <p class="keys">Keys: <kbd>space</kbd> play/pause &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &middot; <kbd>1</kbd>&ndash;<kbd>6</kbd> detector &middot; <kbd>D</kbd> difference</p>
   </footer>
 
   <script src="js/targets.js"></script>
+  <script src="js/skymap.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

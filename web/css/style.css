@@ -27,7 +27,7 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- header ---------- */
 .top {
-  max-width: 1280px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 18px 16px 6px;
   display: grid;
@@ -83,15 +83,99 @@ select {
 
 /* ---------- layout ---------- */
 .layout {
-  max-width: 1280px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 12px 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 320px;
   gap: 20px;
   align-items: start;
 }
-.stage { min-width: 0; }
+.stage, .sky { min-width: 0; }
+
+/* ---------- sky map ---------- */
+.sky-map {
+  position: relative;
+  width: 100%;
+  max-width: max(320px, min(100%, calc(100vh - 250px)));
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  background: #04060b;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.sky-bar, .sky-wave, .sky > .hint {
+  max-width: max(320px, min(100%, calc(100vh - 250px)));
+  margin-left: auto;
+  margin-right: auto;
+}
+.sky-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
+.sky-bar .segmented { flex: 1; min-width: 220px; }
+.sky-bar select { flex: 1; min-width: 0; padding: 7px 8px; }
+.sky-wave { margin-top: 10px; margin-bottom: 0; }
+.check { font-size: 13.5px; white-space: nowrap; }
+.check input { accent-color: var(--accent); }
+.ghost {
+  padding: 7px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ghost:hover { border-color: var(--accent); }
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 10px auto 0;
+  max-width: max(320px, min(100%, calc(100vh - 250px)));
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.legend li { display: flex; gap: 8px; align-items: baseline; }
+.swatch { flex: none; width: 12px; height: 12px; border: 2px solid var(--accent); transform: translateY(2px); }
+.swatch.feet { border: 1px solid var(--good); }
+.swatch.cross { border: 0; color: #fff; font-weight: 700; font-size: 15px; line-height: 12px; text-align: center; }
+
+/* White cross on the map that follows the pointer of the blink image. */
+.sky-pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  display: none;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  pointer-events: none;
+  background:
+    linear-gradient(#fff, #fff) center / 2px 100% no-repeat,
+    linear-gradient(#fff, #fff) center / 100% 2px no-repeat;
+  filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 1px #000);
+}
+
+/* The map across the whole window, with its controls still at hand. */
+.sky.expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 14px;
+  background: var(--bg);
+}
+.sky.expanded .sky-map { flex: 1 1 auto; min-height: 200px; width: 100%; max-width: none; aspect-ratio: auto; }
+.sky.expanded .sky-bar, .sky.expanded .sky-wave { flex: none; width: 100%; max-width: none; }
+.sky.expanded .legend, .sky.expanded > .hint { display: none; }
+body.sky-open { overflow: hidden; }
+/* Safety net for the map library's own full-window mode. */
+.sky-map.aladin-fullscreen { z-index: 1000; border-radius: 0; background: #04060b !important; }
+
+body.no-sky .sky { display: none; }
+body.no-sky .layout { grid-template-columns: minmax(0, 1fr) 330px; max-width: 1280px; }
 
 .viewer {
   position: relative;
@@ -216,7 +300,7 @@ h2 { font-size: 12px; font-weight: 650; letter-spacing: 0.8px; text-transform: u
 .facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 /* ---------- tree ---------- */
-.tree-wrap { max-width: 1280px; margin: 8px auto 0; padding: 0 16px; }
+.tree-wrap { max-width: 1500px; margin: 8px auto 0; padding: 0 16px; }
 .tree { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 10px; }
 .tree table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 .tree th, .tree td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -231,17 +315,25 @@ h2 { font-size: 12px; font-weight: 650; letter-spacing: 0.8px; text-transform: u
 .tree td.now, .tree th.now { background: rgba(255, 180, 84, 0.13); }
 
 /* ---------- footer ---------- */
-.foot { max-width: 1280px; margin: 18px auto 28px; padding: 0 16px; color: var(--muted); font-size: 12.5px; display: grid; gap: 6px; }
+.foot { max-width: 1500px; margin: 18px auto 28px; padding: 0 16px; color: var(--muted); font-size: 12.5px; display: grid; gap: 6px; }
 kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; background: var(--panel); font: inherit; font-size: 12px; }
 
 /* ---------- embed mode (?embed=1) ---------- */
-body.embed .top, body.embed .foot, body.embed .tree-wrap, body.embed .panel { display: none; }
+body.embed .top, body.embed .foot, body.embed .tree-wrap, body.embed .panel, body.embed .sky { display: none; }
 body.embed .layout { grid-template-columns: minmax(0, 1fr); padding: 8px; }
 body.embed .viewer, body.embed .transport, body.embed .readout { max-width: max(240px, min(100%, calc(100vh - 110px))); }
 
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  .sky { grid-column: 1 / -1; }
+  .sky-map { aspect-ratio: 2 / 1; max-width: 100%; }
+  .sky-bar, .sky-wave, .sky > .hint, .legend { max-width: 100%; }
+}
+
 @media (max-width: 900px) {
   .top { grid-template-columns: minmax(0, 1fr); }
-  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout, body.no-sky .layout { grid-template-columns: minmax(0, 1fr); }
+  .sky-map { aspect-ratio: 4 / 3; }
   .search { flex-wrap: wrap; }
   .search input { flex-basis: 100%; }
   .viewer, .transport, .readout { max-width: 100%; }

@@ -39,6 +39,11 @@
   let hovering = false;
   let startFrame = null;
   let shownPosition = '';                // sky position of the frames currently on screen
+  // The sky map is optional: it is skipped in embed mode and if its library cannot be loaded.
+  let sky = query.get('embed') === '1' ? null : (window.BlinkSkyMap || null);
+  let skyKey = '';
+  let skyBands = '';
+  let mapPointer = null;                 // sky position under the pointer on the map
 
   // ---------------------------------------------------------------- helpers
 
@@ -260,9 +265,11 @@
     summaryKey = key;
     state.summary = null;
     renderTree();
+    if (sky) sky.setFootprints([]);
     getJSON('/api/search?ra=' + state.ra + '&dec=' + state.dec).then((s) => {
       if (key !== summaryKey) return;
       state.summary = s;
+      if (sky) sky.setFootprints(s.footprints || []);
       renderTree();
       renderFacts();
     }).catch(() => {});
@@ -276,6 +283,10 @@
     syncControls();
     setMessage('');
     loadSummary();
+    if (sky) {
+      sky.setTarget(state.ra, state.dec, state.fov);
+      if (skyBands !== state.bands) { skyBands = state.bands; sky.setBand(state.bands); }
+    }
     const position = state.ra.toFixed(5) + '|' + state.dec.toFixed(5);
     let data = memo.get(key);
     if (!data) {
@@ -461,6 +472,23 @@
       }
     }
 
+    if (mapPointer) {
+      const q = skyToPixel(mapPointer.ra, mapPointer.dec, g);
+      if (insideFrame(q, d.n)) {
+        const qx = (q.x + 0.5) * s, qy = (q.y + 0.5) * s, arm = 9 * dpr;
+        ctx.lineWidth = 4 * dpr;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        for (let pass = 0; pass < 2; pass++) {
+          ctx.beginPath();
+          ctx.moveTo(qx - arm, qy); ctx.lineTo(qx + arm, qy);
+          ctx.moveTo(qx, qy - arm); ctx.lineTo(qx, qy + arm);
+          ctx.stroke();
+          ctx.lineWidth = 1.6 * dpr;
+          ctx.strokeStyle = '#ffffff';
+        }
+      }
+    }
+
     ctx.font = '600 ' + Math.round(13 * dpr) + 'px system-ui, sans-serif';
     ctx.lineWidth = 3 * dpr;
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
@@ -529,7 +557,94 @@
     }
     markTimeline();
     markTree();
+    syncSky();
     if (!hovering) defaultReadout();
+  }
+
+  function insideFrame(p, n) {
+    return p.x >= 0 && p.y >= 0 && p.x <= n - 1 && p.y <= n - 1;
+  }
+
+  /* The pointer moved on the sky map: show the same spot on the blink image. */
+  function setMapPointer(pos) {
+    const d = state.data;
+    const visible = (p) => !!(p && d && insideFrame(skyToPixel(p.ra, p.dec, geometry(d)), d.n));
+    const redraw = visible(mapPointer) || visible(pos);
+    mapPointer = pos;
+    if (redraw) draw();
+  }
+
+  function setSkyExpanded(on) {
+    $('sky').classList.toggle('expanded', on);
+    document.body.classList.toggle('sky-open', on);
+    $('sky-full').textContent = on ? 'Exit full screen' : 'Full screen';
+  }
+
+  function footprintNote(ev) {
+    if (!ev.total) return 'SPHEREx exposures of the epoch on screen (none to show right now).';
+    const count = ev.total === 1 ? '1 SPHEREx exposure' : ev.total + ' SPHEREx exposures';
+    const drawn = ev.drawn && ev.drawn < ev.total ? ' (' + ev.drawn + ' drawn)' : '';
+    return count + drawn + ' from the epoch on screen. Each green square is one 3.5\u00b0-wide image ' +
+      'that contains the field; stacked together they make the blink frame.';
+  }
+
+  /* Tell the sky map which epoch is on screen so it can show that epoch's footprints. */
+  function syncSky() {
+    if (!sky) return;
+    const f = state.shown[state.frame];
+    const key = (f ? f.meta.epoch : 'none') + '|' + state.bands;
+    if (key === skyKey) return;
+    skyKey = key;
+    sky.showEpoch(f ? f.meta.epoch : -2, state.bands);
+  }
+
+  function initSky() {
+    if (!sky) { document.body.classList.add('no-sky'); return; }
+    const survey = $('sky-survey');
+    Object.keys(sky.surveys).forEach((id) => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = sky.surveys[id].label;
+      survey.appendChild(opt);
+    });
+    survey.addEventListener('change', () => sky.setSurvey(survey.value));
+    $('sky-wave').max = String(sky.channels - 1);
+    $('sky-wave').addEventListener('input', () => sky.setSlice(Number($('sky-wave').value)));
+    $('sky-feet').addEventListener('change', () => sky.setFootprintsVisible($('sky-feet').checked));
+    $('sky-zoom').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button');
+      if (btn) sky.zoom(btn.dataset.zoom);
+    });
+    $('sky-blink').addEventListener('click', () => {
+      const c = sky.centre();
+      if (!c) return;
+      setSkyExpanded(false);
+      $('q').value = c.ra.toFixed(5) + ' ' + c.dec.toFixed(5);
+      submit($('q').value);
+    });
+    $('sky-full').addEventListener('click', () => setSkyExpanded(!$('sky').classList.contains('expanded')));
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && $('sky').classList.contains('expanded')) setSkyExpanded(false);
+    });
+    sky.init('#skymap', (ev) => {
+      if (ev.type === 'slice') {
+        $('sky-wave').value = ev.slice;
+        $('sky-wave').disabled = !ev.cube;
+        $('sky-wave-out').textContent = ev.cube
+          ? ev.wavelength.toFixed(2) + ' \u00b5m (D' + ev.detector + ')'
+          : 'not a SPHEREx map';
+      } else if (ev.type === 'footprints') {
+        $('sky-feet-note').textContent = footprintNote(ev);
+      } else if (ev.type === 'hover') {
+        setMapPointer({ ra: ev.ra, dec: ev.dec });
+      } else if (ev.type === 'leave') {
+        setMapPointer(null);
+      }
+    }).catch(() => {                      // offline, blocked CDN or no WebGL2: carry on without the map
+      sky = null;
+      document.body.classList.add('no-sky');
+      draw();
+    });
   }
 
   function defaultReadout() {
@@ -824,13 +939,18 @@
       const y = Math.floor((ev.clientY - r.top) / r.height * d.n);
       if (x < 0 || y < 0 || x >= d.n || y >= d.n) return;
       hovering = true;
-      const sky = pixelToSky(x, y, geometry(d));
+      const pos = pixelToSky(x, y, geometry(d));
+      if (sky) sky.setCursor(pos.ra, pos.dec);
       const v = f.px[y * d.n + x];
-      $('readout').textContent = fmtRa(sky.ra) + '  ' + fmtDec(sky.dec) + '  ·  ' +
+      $('readout').textContent = fmtRa(pos.ra) + '  ' + fmtDec(pos.dec) + '  ·  ' +
         (v !== v ? 'no data' : !isFinite(v) ? 'saturated'
           : v.toFixed(3) + ' MJy/sr' + (f.kind === 'diff' ? ' (difference)' : ''));
     });
-    canvas.addEventListener('mouseleave', () => { hovering = false; defaultReadout(); });
+    canvas.addEventListener('mouseleave', () => {
+      hovering = false;
+      if (sky) sky.setCursor(null);
+      defaultReadout();
+    });
     window.addEventListener('resize', draw);
   }
 
@@ -875,5 +995,6 @@
   }
 
   buildControls();
+  initSky();
   initFromUrl();
 })();

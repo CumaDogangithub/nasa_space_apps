@@ -14,6 +14,13 @@ Built for the NASA Space Apps Challenge.
 - **Sum**: all epochs averaged for a deeper image.
 - **Six detector arrays**: view each of SPHEREx's six wavelength ranges (0.75–5.0 µm) separately, or all combined.
   Each frame is a stack of all exposures of one detector in one visit, which improves the signal-to-noise.
+- **Sky map**: a globe of the SPHEREx all-sky survey next to the viewer. A slider steps through all
+  102 wavelength channels. The map flies to each new target, marks the field being blinked and draws
+  the footprints of the SPHEREx exposures of the epoch on screen, so you can see how the telescope
+  scanned that spot. WISE, 2MASS and DSS maps are one click away for comparison, and
+  **Blink map centre** blinks whatever you find while browsing the sky.
+  **Field** zooms the map to exactly the area of the blink image, pointing at either picture marks
+  the same spot on the other, and **Full screen** spreads the map over the whole window.
 - **Selectable field of view** from 1′ to 30′.
 - **Coordinates or names**: decimal degrees, `08h55m10.8s -07d14m42.5s`, or a name looked up in SIMBAD.
   For objects with a known proper motion the field is centred where the object is *now*, and a marker
@@ -75,11 +82,18 @@ browser (plain HTML/JS)  ──►  backend (FastAPI + astropy)  ──►  IRSA
 5. **Display.** The browser receives raw float frames and does stretching, blinking and subtraction
    itself, so the controls respond instantly.
 
+### Are the frames in the right place?
+
+`scripts/check_astrometry.py` compares the blink frames with Gaia DR3: it predicts where each Gaia star
+should fall in a frame and measures where the star actually is. In three 6′ test fields (RW Aurigae,
+Proxima Centauri, WISE 0855; detector D2) the median difference was 0.4–0.8″, a small fraction of one
+SPHEREx pixel (6.15″). The sky map draws the blink field from the same coordinates.
+
 ### HTTP API
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/search?ra=&dec=` | Epochs and exposure counts per detector for a position |
+| `GET /api/search?ra=&dec=` | Epochs, exposure counts per detector and exposure footprints for a position |
 | `GET /api/frames?ra=&dec=&fov=&bands=` | Aligned epoch frames (binary: JSON header + float32 pixels) |
 | `GET /api/resolve?name=` | Position, proper motion and parallax of a named object (SIMBAD) |
 | `GET /api/health` | Configured data collections and limits |
@@ -96,8 +110,12 @@ backend/    archive.py   image search and S3 range reads
             pipeline.py  alignment, epochs, stacking, cache
             app.py       web API, serves the front end
             releases.json
-web/        index.html, css/, js/   the viewer (no build step)
+web/        index.html, css/        the page (no build step)
+            js/app.js    blink viewer
+            js/skymap.js sky map (Aladin Lite)
+            js/targets.js example targets
 scripts/    poc.py       command-line version that writes a GIF
+            check_astrometry.py  compares frame positions with Gaia DR3
 ```
 
 ## Test targets
@@ -112,7 +130,7 @@ scripts/    poc.py       command-line version that writes a GIF
 ## Status
 
 Working: search by coordinates or name, per-detector epoch stacks, blink / difference / sum, field of view,
-URL parameters, embed mode, disk cache.
+sky map with the 102-channel SPHEREx cube and exposure footprints, URL parameters, embed mode, disk cache.
 
 Planned: Gaia DR3 overlay, on-the-fly spectra, contamination flags, bundled offline data for the test targets.
 
@@ -121,4 +139,8 @@ Planned: Gaia DR3 overlay, on-the-fly spectra, contamination flags, bundled offl
 This project uses data products from SPHEREx, a joint project of the Jet Propulsion Laboratory and the
 California Institute of Technology funded by NASA, obtained from the NASA/IPAC Infrared Science Archive
 (IRSA). Positions and proper motions come from the ESA Gaia mission (DR3) and the SIMBAD database.
-The interface is modelled on [WiseView](http://byw.tools/wiseview).
+The interface is modelled on [WiseView](http://byw.tools/wiseview) and on IRSA's SPHEREx Data Explorer.
+
+The sky map uses [Aladin Lite](https://aladin.cds.unistra.fr/AladinLite/) (CDS, Strasbourg; GPL-3), loaded
+from the jsDelivr CDN when the page opens, and the all-sky maps (SPHEREx, AllWISE, 2MASS, DSS) hosted by IRSA.
+If the library cannot be loaded, the page still works without the map.

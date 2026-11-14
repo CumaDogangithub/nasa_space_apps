@@ -155,5 +155,18 @@ def resolve(name: str = Query(..., min_length=1, max_length=80)) -> dict:
     raise HTTPException(502, f"Name lookup failed: {last}")
 
 
+class FreshStaticFiles(StaticFiles):
+    """Static files the browser must revalidate on every visit.
+
+    Without this a browser may pair a cached, older index.html with newer
+    scripts (or the reverse) after the tool is updated.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 if config.WEB_DIR.exists():
-    app.mount("/", StaticFiles(directory=config.WEB_DIR, html=True), name="web")
+    app.mount("/", FreshStaticFiles(directory=config.WEB_DIR, html=True), name="web")

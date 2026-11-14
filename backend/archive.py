@@ -62,6 +62,7 @@ class Exposure:
     exptime: float
     collection: str
     key: str           # path below the release root; identical on IRSA and S3
+    poly: list[float] | None = None   # footprint on the sky: ra1, dec1, ... ra4, dec4 (degrees)
 
     @property
     def s3_url(self) -> str:
@@ -144,6 +145,14 @@ def _run_parallel(func, items: list, label: str, progress: Progress | None) -> l
 # Image search (SIA2)
 # --------------------------------------------------------------------------
 
+def _parse_region(text: str | None) -> list[float] | None:
+    """Corners of an 's_region' polygon such as 'POLYGON ICRS ra1 dec1 ra2 dec2 ...'."""
+    values = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", text or "")
+    if len(values) < 8:
+        return None
+    return [round(float(v), 4) for v in values[:8]]
+
+
 def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
     params = {
         "COLLECTION": collection,
@@ -173,6 +182,7 @@ def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
                 exptime=float(row.get("t_exptime") or 0.0),
                 collection=row.get("obs_collection") or collection,
                 key=url[len(config.IRSA_PREFIX):],
+                poly=_parse_region(row.get("s_region")),
             )
         )
     return out
@@ -180,7 +190,7 @@ def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
 
 def search(ra: float, dec: float, use_cache: bool = True) -> list[Exposure]:
     """All spectral images whose footprint contains (ra, dec), oldest first."""
-    cache = config.CACHE_DIR / "sia" / f"{ra:.5f}_{dec:+.5f}.json"
+    cache = config.CACHE_DIR / "sia" / f"{ra:.5f}_{dec:+.5f}_v2.json"
     if use_cache and cache.exists() and time.time() - cache.stat().st_mtime < config.SIA_CACHE_HOURS * 3600:
         return [Exposure(**d) for d in json.loads(cache.read_text(encoding="utf-8"))]
 

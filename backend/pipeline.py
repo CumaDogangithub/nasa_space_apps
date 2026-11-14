@@ -235,12 +235,17 @@ def summarize(exposures: list[archive.Exposure]) -> dict:
         for i, (a, b) in enumerate(epochs)
     ]
     collections: dict[str, int] = {}
+    footprints = []          # [detector, epoch, ra1, dec1, ... ra4, dec4] per exposure
     for e in exposures:
-        rows[epoch_index(epochs, e.mjd)]["counts"][str(e.band)] += 1
+        idx = epoch_index(epochs, e.mjd)
+        rows[idx]["counts"][str(e.band)] += 1
         collections[e.collection] = collections.get(e.collection, 0) + 1
+        if e.poly:
+            footprints.append([e.band, idx] + e.poly)
     return {
         "n_images": len(exposures),
         "epochs": rows,
+        "footprints": footprints,
         "collections": collections,
         "latest_date": mjd_to_iso(max(e.mjd for e in exposures)) if exposures else None,
     }
