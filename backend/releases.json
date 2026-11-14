@@ -1,0 +1,12 @@
+{
+  "_comment": "To pick up a new SPHEREx data release, add its SIA collection name here. Weekly Quick Release additions to an existing collection appear automatically.",
+  "sia_url": "https://irsa.ipac.caltech.edu/SIA",
+  "irsa_prefix": "https://irsa.ipac.caltech.edu/ibe/data/spherex/",
+  "s3_prefix": "https://nasa-irsa-spherex.s3.amazonaws.com/",
+  "collections": [
+    "spherex_dr1",
+    "spherex_dr1_deep",
+    "spherex_qr3",
+    "spherex_qr3_deep"
+  ]
+}

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPHEREx Blink Tree</title>
+  <meta name="description" content="Blink through NASA SPHEREx infrared images of any patch of sky to spot things that move or change.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="9" r="4.2"/><circle cx="8" cy="27" r="3.2"/><circle cx="20" cy="31" r="3.2"/><circle cx="32" cy="27" r="3.2"/>
+        <path d="M20 13v14M20 16L9 24M20 16l11 8"/>
+      </svg>
+      <div>
+        <h1>SPHEREx Blink Tree</h1>
+        <p>Blink through NASA&rsquo;s infrared sky survey and spot what moves or changes.</p>
+      </div>
+    </div>
+    <form id="search" class="search" autocomplete="off">
+      <input id="q" type="text" spellcheck="false" aria-label="Coordinates or object name"
+             placeholder="RA and Dec (133.795 -7.245 or 08h55m10.8s -07d14m42.5s) or an object name">
+      <label class="fov" for="fov">Field
+        <select id="fov">
+          <option value="120">2&prime;</option>
+          <option value="180">3&prime;</option>
+          <option value="240">4&prime;</option>
+          <option value="360">6&prime;</option>
+          <option value="600">10&prime;</option>
+          <option value="900">15&prime;</option>
+          <option value="1800">30&prime;</option>
+        </select>
+      </label>
+      <button type="submit" id="go">Blink</button>
+    </form>
+    <div class="examples" id="examples" aria-label="Example targets"></div>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="viewer" id="viewer">
+        <canvas id="view" aria-label="SPHEREx image of the selected field"></canvas>
+        <div class="message" id="message" hidden></div>
+        <div class="progress" id="progress" hidden>
+          <div class="track"><div class="bar" id="bar"></div></div>
+          <span id="progress-label"></span>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="prev" type="button" title="Previous epoch (left arrow)" aria-label="Previous epoch">&#9664;</button>
+        <button id="play" type="button" title="Play or pause (space)">Pause</button>
+        <button id="next" type="button" title="Next epoch (right arrow)" aria-label="Next epoch">&#9654;</button>
+        <div class="timeline" id="timeline"></div>
+      </div>
+      <div class="readout" id="readout">&nbsp;</div>
+    </section>
+
+    <aside class="panel">
+      <section>
+        <h2>Detector array</h2>
+        <div class="bands" id="bands"></div>
+        <p class="hint">SPHEREx has six detectors, each covering a slice of the near-infrared. Cold objects such as brown dwarfs are brightest in D5 and D6.</p>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="segmented" id="modes">
+          <button type="button" data-mode="blink">Blink</button>
+          <button type="button" data-mode="diff">Difference</button>
+          <button type="button" data-mode="sum">Sum</button>
+        </div>
+        <label class="row" id="ref-row" hidden>Subtract
+          <select id="ref"></select>
+        </label>
+        <p class="hint" id="mode-hint"></p>
+      </section>
+
+      <section>
+        <h2>Display</h2>
+        <label class="slider">Blink interval <output id="speed-out"></output>
+          <input id="speed" type="range" min="100" max="2000" step="50">
+        </label>
+        <label class="slider">Brightness range <output id="white-out"></output>
+          <input id="white" type="range" min="0" max="100" step="1">
+        </label>
+        <label class="slider">Black level <output id="black-out"></output>
+          <input id="black" type="range" min="0" max="10" step="0.5">
+        </label>
+        <label class="slider">Smoothing <output id="smooth-out"></output>
+          <input id="smooth" type="range" min="0" max="2" step="0.25">
+        </label>
+        <div class="checks">
+          <label><input id="invert" type="checkbox"> Invert</label>
+          <label><input id="interp" type="checkbox"> Soft pixels</label>
+          <label><input id="marks" type="checkbox"> Markers</label>
+        </div>
+      </section>
+
+      <section>
+        <h2>This field</h2>
+        <dl class="facts" id="facts"></dl>
+      </section>
+    </aside>
+  </main>
+
+  <section class="tree-wrap" id="tree-wrap" hidden>
+    <h2>What SPHEREx has for this spot</h2>
+    <p class="hint">Each column is one visit of the telescope; each row is one detector array. Numbers are exposures. Click a row to blink that detector.</p>
+    <div class="tree" id="tree"></div>
+  </section>
+
+  <footer class="foot">
+    <p>Images: NASA SPHEREx mission (JPL/Caltech), served by the NASA/IPAC Infrared Science Archive. Positions: ESA Gaia DR3 and SIMBAD.
+       Built for the NASA Space Apps Challenge.</p>
+    <p class="keys">Keys: <kbd>space</kbd> play/pause &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &middot; <kbd>1</kbd>&ndash;<kbd>6</kbd> detector &middot; <kbd>D</kbd> difference</p>
+  </footer>
+
+  <script src="js/targets.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
