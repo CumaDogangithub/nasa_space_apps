@@ -53,19 +53,26 @@ def _flags_at_centre(plan: archive.CutPlan, window: np.ndarray) -> int:
 
 
 def build_flags(ra: float, dec: float, fov: float, bands: list[int],
-                progress: archive.Progress | None = None) -> dict:
+                progress: archive.Progress | None = None,
+                per_epoch: int = pipeline.DEFAULT_PER_EPOCH) -> dict:
     """Flag maps for the blink frames of (ra, dec, fov, bands), plus one row per exposure.
 
     ``fraction`` is uint8 [frame, row, col]: the share (0-255) of a pixel's
     exposures with a trouble flag. ``common`` is int32 [frame, row, col]: the
     flags set in at least a quarter of them. Frames are keyed by epoch index,
-    rows run north to south like the blink frames.
+    rows run north to south like the blink frames. ``per_epoch`` must be the
+    value the frames were built with, so that both use the same exposures.
     """
     exposures = archive.search(ra, dec)
     epochs = pipeline.cluster_epochs(e.mjd for e in exposures)
-    selected = [e for e in exposures if e.band in bands]
-    fingerprint = f"{len(exposures)}:{len(selected)}:{max((e.mjd for e in exposures), default=0):.4f}"
+    found = [e for e in exposures if e.band in bands]
+    selected = []
+    for band in sorted(set(bands)):                 # the same exposures as the blink frames
+        selected += pipeline.thin_per_epoch([e for e in found if e.band == band], epochs, per_epoch)
+    fingerprint = f"{len(exposures)}:{len(found)}:{max((e.mjd for e in exposures), default=0):.4f}"
     tag = f"{ra:.5f}|{dec:.5f}|{pipeline.clamp_fov(fov):.1f}|{sorted(bands)}|{fingerprint}|v{FLAGS_VERSION}"
+    if len(selected) < len(found):
+        tag += f"|max{per_epoch}"
     key = hashlib.sha1(tag.encode()).hexdigest()[:20]
     path = config.CACHE_DIR / "flags" / f"{key}.npz"
 

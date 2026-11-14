@@ -30,6 +30,8 @@ EPOCH_GAP_DAYS = 15.0               # a longer pause starts a new epoch
 EPOCH_MAX_SPAN = 45.0               # longer visits (deep fields) are split ...
 EPOCH_WINDOW = 30.0                 # ... into windows of about this length
 MIN_EXPOSURES_PER_FRAME = 2
+DEFAULT_PER_EPOCH = 40              # most exposures of one detector read for one frame, unless asked otherwise
+MAX_PER_EPOCH = 5000
 SATURATION_SIGMA = 50.0             # "very bright" threshold used to recognise saturated cores
 
 _MJD0 = datetime(1858, 11, 17)
@@ -226,6 +228,34 @@ def epoch_index(epochs: list[tuple[float, float]], mjd: float) -> int:
     return best
 
 
+def clamp_per_epoch(limit: int) -> int:
+    """A sensible value for "most exposures per visit"; 0 (or less) means all of them."""
+    return 0 if limit <= 0 else int(min(max(limit, MIN_EXPOSURES_PER_FRAME), MAX_PER_EPOCH))
+
+
+def thin_per_epoch(exposures: list[archive.Exposure], epochs: list[tuple[float, float]],
+                   limit: int) -> list[archive.Exposure]:
+    """At most ``limit`` exposures of each visit, spread evenly over the visit (0: all of them).
+
+    Fields near the ecliptic poles have hundreds of exposures per visit and
+    detector; reading them all takes minutes and a blink frame does not need
+    them. The choice depends only on the list, so it is the same every time.
+    """
+    if limit <= 0:
+        return list(exposures)
+    visits: dict[int, list[archive.Exposure]] = {}
+    for exp in exposures:
+        visits.setdefault(epoch_index(epochs, exp.mjd), []).append(exp)
+    kept: list[archive.Exposure] = []
+    for members in visits.values():
+        members.sort(key=lambda e: e.mjd)
+        if len(members) > limit:
+            step = (len(members) - 1) / max(limit - 1, 1)
+            members = [members[i] for i in sorted({round(k * step) for k in range(limit)})]
+        kept.extend(members)
+    return sorted(kept, key=lambda e: (e.mjd, e.band))
+
+
 def summarize(exposures: list[archive.Exposure]) -> dict:
     """What the archive holds for a position: epochs and exposure counts per band."""
     epochs = cluster_epochs(e.mjd for e in exposures)
@@ -270,10 +300,12 @@ def _frame_stats(cube: np.ndarray, meta: list[dict]) -> dict:
 
 
 def _compute_band(ra: float, dec: float, fov: float, band: int,
-                  exposures: list[archive.Exposure], progress: archive.Progress | None) -> dict:
+                  exposures: list[archive.Exposure], progress: archive.Progress | None,
+                  per_epoch: int = 0) -> dict:
     timing: dict[str, float] = {}
     epochs = cluster_epochs(e.mjd for e in exposures)
-    selected = [e for e in exposures if e.band == band]
+    found = [e for e in exposures if e.band == band]
+    selected = thin_per_epoch(found, epochs, per_epoch)
     grid = make_grid(ra, dec, fov)
     half = cutout_half_size(grid.fov)
 
@@ -347,7 +379,7 @@ def _compute_band(ra: float, dec: float, fov: float, band: int,
         "frames": cube,
         "epochs": meta,
         "stats": _frame_stats(cube, meta),
-        "n_found": len(selected),
+        "n_found": len(found),
         "n_used": len(layers),
         "timing": timing,
         "exposures": exposure_rows,
@@ -365,19 +397,25 @@ def _lock_for(key: str) -> threading.Lock:
 
 
 def build_band(ra: float, dec: float, fov: float, band: int,
-               progress: archive.Progress | None = None) -> dict:
+               progress: archive.Progress | None = None,
+               per_epoch: int = DEFAULT_PER_EPOCH) -> dict:
     """Aligned epoch stacks of one detector array around (ra, dec), cached on disk.
 
     Frames are float32 [epoch, row, col] in MJy/sr with the local sky level
     removed; row 0 is north, column 0 is east. NaN means no data and +inf
-    means saturated.
+    means saturated. ``per_epoch`` is the most exposures read for one frame
+    (0: all); ``thinned`` in the result says whether that left any out.
     """
     t = time.time()
     exposures = archive.search(ra, dec)
     search_time = time.time() - t
     mine = [e for e in exposures if e.band == band]
+    epochs = cluster_epochs(e.mjd for e in exposures)
+    thinned = len(thin_per_epoch(mine, epochs, per_epoch)) < len(mine)
     fingerprint = f"{len(exposures)}:{len(mine)}:{max((e.mjd for e in exposures), default=0):.4f}"
     tag = f"{ra:.5f}|{dec:.5f}|{clamp_fov(fov):.1f}|{band}|{fingerprint}|v{PIPELINE_VERSION}"
+    if thinned:                                   # a limit that leaves nothing out gives the same frames as no limit
+        tag += f"|max{per_epoch}"
     key = hashlib.sha1(tag.encode()).hexdigest()[:20]
     path = config.CACHE_DIR / "frames" / f"{key}.npz"
 
@@ -388,14 +426,17 @@ def build_band(ra: float, dec: float, fov: float, band: int,
                 result["frames"] = z["frames"]
             result["cached"] = True
             result["timing"] = {"search": search_time}
-            return result
-        result = _compute_band(ra, dec, fov, band, exposures, progress)
-        result["timing"]["search"] = search_time
-        meta = {k: v for k, v in result.items() if k != "frames"}
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(f"{key}.{threading.get_ident()}.tmp.npz")
-        np.savez(tmp, frames=result["frames"], meta=np.array(json.dumps(_clean(meta))))
-        tmp.replace(path)
+        else:
+            result = _compute_band(ra, dec, fov, band, exposures, progress, per_epoch)
+            result["timing"]["search"] = search_time
+            meta = {k: v for k, v in result.items() if k != "frames"}
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_name(f"{key}.{threading.get_ident()}.tmp.npz")
+            np.savez(tmp, frames=result["frames"], meta=np.array(json.dumps(_clean(meta))))
+            tmp.replace(path)
+        result["n_found"] = len(mine)
+        result["per_epoch"] = per_epoch
+        result["thinned"] = thinned
         return result
 
 
@@ -444,11 +485,14 @@ def combine(results: list[dict]) -> dict:
         "timing": timing,
         "exposures": [row for r in results for row in r["exposures"]],
         "cached": all(r["cached"] for r in results),
+        "per_epoch": first.get("per_epoch", 0),
+        "thinned": any(r.get("thinned") for r in results),
     }
 
 
 def build(ra: float, dec: float, fov: float, bands: list[int],
-          progress: archive.Progress | None = None) -> dict:
+          progress: archive.Progress | None = None,
+          per_epoch: int = DEFAULT_PER_EPOCH) -> dict:
     """Epoch frames for one detector array, or the average of several."""
     results = []
     for i, band in enumerate(bands):
@@ -457,7 +501,7 @@ def build(ra: float, dec: float, fov: float, bands: list[int],
                 # headers are quick; weight them as a fifth of a band's work
                 part = (0.2 * done / total) if label == "headers" else (0.2 + 0.8 * done / total)
                 progress(f"D{band} {label}", int(1000 * (i + part) / len(bands)), 1000)
-        results.append(build_band(ra, dec, fov, band, sub))
+        results.append(build_band(ra, dec, fov, band, sub, per_epoch))
     return results[0] if len(results) == 1 else combine(results)
 
 

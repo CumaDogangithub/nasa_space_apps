@@ -30,7 +30,7 @@
   const WHOLE_SKY = 180;        // degrees
   const SCAN_AREA = 12;         // wide enough to show whole 3.5-degree detector footprints
   const FIELD_MARGIN = 1.06;    // "Field" shows the blink field itself, with a sliver of margin
-  const MAX_FOOTPRINTS = 80;
+  const MAX_FOOTPRINTS = 6;     // a few, spread over the visit: every exposure would bury the map in squares
   const D2R = Math.PI / 180;
 
   let A = null;
@@ -174,7 +174,7 @@
         showSimbadPointerControl: false, showSettingsControl: false, showShareControl: false,
         showColorPickerControl: false, showContextMenu: false,
         showFrame: false, showFov: true, showCooLocation: true, showStatusBar: false,
-        backgroundColor: 'rgb(4, 6, 11)', log: false
+        backgroundColor: 'rgb(1, 2, 4)', log: false
       });
       feetLayer = A.graphicOverlay({ color: '#5ad19a', lineWidth: 1 });
       fieldLayer = A.graphicOverlay({ color: '#ffb454', lineWidth: 2 });

@@ -1,0 +1,4 @@
+# only needed to retake the screenshots (see figures.cjs)
+node_modules/
+package.json
+package-lock.json

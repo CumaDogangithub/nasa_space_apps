@@ -3,6 +3,7 @@
 Two public services are used:
 
 * IRSA's SIA2 service tells us which Level-2 spectral images cover a position.
+  It is sometimes down; answers are stored so that the tool keeps working then.
 * The same files are mirrored in a public AWS S3 bucket. They are plain,
   uncompressed FITS, so the pixels around a target can be read with HTTP
   range requests instead of downloading the 60+ MB file.
@@ -13,6 +14,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import re
 import threading
 import time
@@ -153,17 +155,49 @@ def _parse_region(text: str | None) -> list[float] | None:
     return [round(float(v), 4) for v in values[:8]]
 
 
-def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
-    params = {
-        "COLLECTION": collection,
-        "POS": f"circle {ra:.6f} {dec:.6f} 0.0003",
-        "RESPONSEFORMAT": "CSV",
-    }
-    r = _session.get(config.SIA_URL, params=params, timeout=(10, 120))
-    r.raise_for_status()
-    reader = csv.DictReader(io.StringIO(r.text))
-    if not reader.fieldnames or "access_url" not in reader.fieldnames:
-        raise RuntimeError(f"unexpected SIA response for {collection}: {r.text[:200]!r}")
+SIA_TRIES = 6          # the service sometimes refuses every other request, and refuses quickly: ask again
+SIA_PAUSE = 0.3        # seconds before the second attempt; each later pause is longer by as much
+SIA_REST = 30.0        # after all attempts failed the service is left alone for this long
+NEARBY_DEG = 3.6       # earlier searches this close can share images (a footprint is 3.5 degrees wide)
+
+
+class ArchiveUnavailable(RuntimeError):
+    """The image search does not answer and nothing stored earlier covers the position."""
+
+
+_search_lock = threading.Lock()
+_search_info: dict[str, dict] = {}                      # position -> how its image list was obtained
+_resting_until = 0.0                                    # the service failed completely: do not ask before this time
+_stored: dict[str, tuple[float, list[dict]]] = {}       # stored searches already parsed: file name -> (mtime, rows)
+_position_locks: dict[str, threading.Lock] = {}         # one question to the archive per position at a time
+
+
+def _ask_archive(ra: float, dec: float) -> list[Exposure]:
+    """Every image, of all collections, whose footprint contains the position.
+
+    One request names all collections, so the answer is either complete or
+    missing: there is no such thing as half a list.
+    """
+    params = [("COLLECTION", c) for c in config.COLLECTIONS]
+    params += [("POS", f"circle {ra:.6f} {dec:.6f} 0.0003"), ("RESPONSEFORMAT", "CSV")]
+    last: Exception | None = None
+    for attempt in range(SIA_TRIES):
+        if attempt:
+            time.sleep(SIA_PAUSE * attempt)
+        try:
+            r = _session.get(config.SIA_URL, params=params, timeout=(8, 90))
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            reader = csv.DictReader(io.StringIO(r.text))
+            if not reader.fieldnames or "access_url" not in reader.fieldnames:
+                raise RuntimeError(f"unexpected answer {r.text[:80]!r}")
+            return _read_rows(reader)
+        except (requests.RequestException, RuntimeError) as exc:
+            last = exc
+    raise RuntimeError(f"{last} ({SIA_TRIES} attempts)")
+
+
+def _read_rows(reader: csv.DictReader) -> list[Exposure]:
     out = []
     for row in reader:
         url = row.get("access_url") or ""
@@ -180,7 +214,7 @@ def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
                 band=band,
                 mjd=0.5 * (t_min + t_max),
                 exptime=float(row.get("t_exptime") or 0.0),
-                collection=row.get("obs_collection") or collection,
+                collection=row.get("obs_collection") or "",
                 key=url[len(config.IRSA_PREFIX):],
                 poly=_parse_region(row.get("s_region")),
             )
@@ -188,28 +222,155 @@ def _sia_query(collection: str, ra: float, dec: float) -> list[Exposure]:
     return out
 
 
+def _unit(ra: float, dec: float) -> tuple[float, float, float]:
+    a, d = math.radians(ra), math.radians(dec)
+    return (math.cos(d) * math.cos(a), math.cos(d) * math.sin(a), math.sin(d))
+
+
+def footprint_contains(poly: list[float] | None, ra: float, dec: float) -> bool:
+    """Is a sky position inside an image footprint? Corners in order; the shape is convex."""
+    if not poly or len(poly) < 8:
+        return False
+    p = _unit(ra, dec)
+    corners = [_unit(poly[i], poly[i + 1]) for i in range(0, 8, 2)]
+    middle = [sum(c[k] for c in corners) for k in range(3)]
+    norm = math.sqrt(sum(v * v for v in middle))
+    if sum(p[k] * middle[k] for k in range(3)) < 0.99 * norm:      # more than 8 degrees away
+        return False
+    sides = []
+    for a, b in zip(corners, corners[1:] + corners[:1]):
+        normal = (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+        sides.append(sum(normal[k] * p[k] for k in range(3)))
+    return all(s >= 0 for s in sides) or all(s <= 0 for s in sides)
+
+
+def _stored_rows(path: Path) -> list[dict]:
+    """A stored search, parsed once and then kept in memory."""
+    mtime = path.stat().st_mtime
+    hit = _stored.get(path.name)
+    if hit and hit[0] == mtime:
+        return hit[1]
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    _stored[path.name] = (mtime, rows)
+    return rows
+
+
+def _from_earlier_searches(ra: float, dec: float) -> dict[str, Exposure]:
+    """Images found by earlier searches close by whose footprint contains this position.
+
+    Every image returned really covers the position; images that no earlier
+    search happened to find are missing, more of them the further away the
+    earlier searches were.
+    """
+    out: dict[str, Exposure] = {}
+    folder = config.CACHE_DIR / "sia"
+    if not folder.exists():
+        return out
+    here = _unit(ra, dec)
+    reach = math.cos(math.radians(NEARBY_DEG))
+    for path in folder.glob("*_v2.json"):
+        try:
+            pra, pdec = (float(v) for v in path.name[: -len("_v2.json")].split("_"))
+            there = _unit(pra, pdec)
+            if sum(here[k] * there[k] for k in range(3)) < reach:
+                continue
+            for row in _stored_rows(path):
+                uid = f"{row['obs_id']}_D{row['band']}"
+                if uid not in out and footprint_contains(row.get("poly"), ra, dec):
+                    out[uid] = Exposure(**row)
+        except (KeyError, ValueError, TypeError, OSError):
+            continue
+    return out
+
+
+def _note(ra: float, dec: float, source: str) -> None:
+    with _search_lock:
+        _search_info[f"{ra:.5f}_{dec:+.5f}"] = {"source": source}
+
+
+def search_info(ra: float, dec: float) -> dict:
+    """How the image list of the last search at this position was obtained.
+
+    ``source`` is "archive" (asked just now), "cache" (asked within the last
+    SIA_CACHE_HOURS), "stale" (the search service does not answer, so an older
+    answer is used) or "incomplete" (it does not answer and this position was
+    never asked before: the list was put together from earlier searches nearby).
+    """
+    with _search_lock:
+        return dict(_search_info.get(f"{ra:.5f}_{dec:+.5f}", {"source": "archive"}))
+
+
+def _position_lock(name: str) -> threading.Lock:
+    with _search_lock:
+        return _position_locks.setdefault(name, threading.Lock())
+
+
+def _recent(cache: Path) -> list[Exposure] | None:
+    """The stored answer for a position, if it is recent enough to be used as it is."""
+    if cache.exists() and time.time() - cache.stat().st_mtime < config.SIA_CACHE_HOURS * 3600:
+        return [Exposure(**d) for d in _stored_rows(cache)]
+    return None
+
+
 def search(ra: float, dec: float, use_cache: bool = True) -> list[Exposure]:
-    """All spectral images whose footprint contains (ra, dec), oldest first."""
-    cache = config.CACHE_DIR / "sia" / f"{ra:.5f}_{dec:+.5f}_v2.json"
-    if use_cache and cache.exists() and time.time() - cache.stat().st_mtime < config.SIA_CACHE_HOURS * 3600:
-        return [Exposure(**d) for d in json.loads(cache.read_text(encoding="utf-8"))]
+    """All spectral images whose footprint contains (ra, dec), oldest first.
 
-    found: dict[str, Exposure] = {}
-    errors = []
-    with ThreadPoolExecutor(max_workers=len(config.COLLECTIONS)) as pool:
-        futures = {pool.submit(_sia_query, c, ra, dec): c for c in config.COLLECTIONS}
-        for fut in as_completed(futures):
-            try:
-                for exp in fut.result():
-                    found.setdefault(exp.uid, exp)
-            except Exception as exc:
-                errors.append(f"{futures[fut]}: {exc}")
-    if errors and not found:
-        raise RuntimeError("image search failed: " + "; ".join(errors))
+    An answer of the archive is stored and reused for SIA_CACHE_HOURS. The
+    archive's search service is sometimes down, for a moment or for hours.
+    Then an older stored answer is used, or else the images of earlier
+    searches nearby whose footprint contains the position. ``search_info``
+    tells which of these happened.
+    """
+    name = f"{ra:.5f}_{dec:+.5f}"
+    cache = config.CACHE_DIR / "sia" / f"{name}_v2.json"
+    recent = _recent(cache) if use_cache else None
+    if recent is None:
+        # The page asks for the images, the frames and the flags of a new field at the same
+        # moment: the first request asks the archive, the others wait and use its answer.
+        with _position_lock(name):
+            recent = _recent(cache) if use_cache else None
+            if recent is None:
+                return _ask_or_fall_back(ra, dec, cache)
+    _note(ra, dec, "cache")
+    return recent
 
-    exposures = sorted(found.values(), key=lambda e: (e.mjd, e.band))
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps([asdict(e) for e in exposures]), encoding="utf-8")
+
+def _ask_or_fall_back(ra: float, dec: float, cache: Path) -> list[Exposure]:
+    global _resting_until
+    answer: list[Exposure] | None = None
+    error = ""
+    if time.time() < _resting_until:
+        error = "it did not answer a moment ago"
+    else:
+        try:
+            answer = _ask_archive(ra, dec)
+        except Exception as exc:
+            error = str(exc)
+            _resting_until = time.time() + SIA_REST
+
+    if answer is not None:
+        unique: dict[str, Exposure] = {}
+        for exp in answer:
+            unique.setdefault(exp.uid, exp)
+        exposures = sorted(unique.values(), key=lambda e: (e.mjd, e.band))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache.with_name(f"{cache.name}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps([asdict(e) for e in exposures]), encoding="utf-8")
+        tmp.replace(cache)
+        _note(ra, dec, "archive")
+        return exposures
+
+    # The service is down: work from what earlier searches stored.
+    print(f"[archive] no image search at {ra:.5f} {dec:+.5f}: {error}", flush=True)
+    if cache.exists():
+        exposures = [Exposure(**d) for d in _stored_rows(cache)]
+        source = "stale"
+    else:
+        exposures = sorted(_from_earlier_searches(ra, dec).values(), key=lambda e: (e.mjd, e.band))
+        source = "incomplete"
+    if not exposures:
+        raise ArchiveUnavailable("the SPHEREx image search (IRSA) is not answering")
+    _note(ra, dec, source)
     return exposures
 
 

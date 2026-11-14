@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import time
 
 import requests
 
@@ -17,6 +18,7 @@ from . import config
 GAIA_TAP = "https://gea.esac.esa.int/tap-server/tap/sync"
 GAIA_EPOCH = 2016.0          # reference epoch of Gaia DR3 positions
 GAIA_LIMIT = 600             # brightest stars kept per field
+GAIA_TRIES = 3               # attempts before the overlay gives up
 # Gaia positions are for 2016. A star moving 15"/yr is 150" away from there ten
 # years later, so search that much beyond the field to catch fast movers.
 PM_MARGIN_ARCSEC = 150.0
@@ -41,15 +43,22 @@ def gaia_cone(ra: float, dec: float, radius_deg: float) -> dict:
         f"WHERE 1=CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.7f}, {dec:.7f}, {radius_deg:.5f})) "
         "ORDER BY phot_g_mean_mag"
     )
-    r = requests.get(
-        GAIA_TAP,
-        params={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": query},
-        timeout=(8, 60),
-    )
-    r.raise_for_status()
-    reader = csv.DictReader(io.StringIO(r.text))
-    if not reader.fieldnames or "source_id" not in reader.fieldnames:
-        raise RuntimeError(f"unexpected Gaia response: {r.text[:200]!r}")
+    params = {"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": query}
+    last: Exception | None = None
+    for attempt in range(GAIA_TRIES):               # a busy archive often answers the second time
+        if attempt:
+            time.sleep(attempt)
+        try:
+            r = requests.get(GAIA_TAP, params=params, timeout=(8, 60))
+            r.raise_for_status()
+            reader = csv.DictReader(io.StringIO(r.text))
+            if not reader.fieldnames or "source_id" not in reader.fieldnames:
+                raise RuntimeError(f"unexpected Gaia response: {r.text[:200]!r}")
+            break
+        except (requests.RequestException, RuntimeError) as exc:
+            last = exc
+    else:
+        raise RuntimeError(str(last))
 
     sources = []
     for row in reader:

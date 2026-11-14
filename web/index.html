@@ -3,27 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SPHEREx Blink Tree</title>
+  <title>SPHEREx Blink Tree · Kuyruk Team</title>
   <meta name="description" content="Blink through NASA SPHEREx infrared images of any patch of sky to spot things that move or change.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23070a12'/%3E%3Cg fill='%23ffb454'%3E%3Ccircle cx='20' cy='9' r='4.2'/%3E%3Ccircle cx='8' cy='27' r='3.2'/%3E%3Ccircle cx='20' cy='31' r='3.2'/%3E%3Ccircle cx='32' cy='27' r='3.2'/%3E%3C/g%3E%3Cpath d='M20 13v14M20 16L9 24M20 16l11 8' stroke='%23ffb454' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23020409'/%3E%3Cg transform='translate(2.6 3.4) scale(.86)'%3E%3Cg fill='%234c8dff'%3E%3Cpolygon points='8.17,28.34 12.83,30.66 22.75,6.87 21.25,6.13'/%3E%3Cpolygon points='8.68,27.64 12.32,31.36 32.09,9.6 30.91,8.4'/%3E%3Cpolygon points='9.43,27.13 11.57,31.87 35.35,19.28 34.65,17.72'/%3E%3Ccircle cx='10.5' cy='29.5' r='7.3'/%3E%3C/g%3E%3Ccircle class='node' cx='22' cy='6.5' r='2.7' fill='%23c084fc'/%3E%3Ccircle class='node' cx='35' cy='18.5' r='2.7' fill='%23c084fc'/%3E%3Cg transform='translate(31.5 9)'%3E%3Cpath class='spark' fill='%23fff' d='M0-4.9 1.3-1.3 4.9 0 1.3 1.3 0 4.9-1.3 1.3-4.9 0-1.3-1.3Z'/%3E%3C/g%3E%3Ccircle cx='10.5' cy='29.5' r='4.6' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="top">
     <div class="brand">
       <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
-        <circle cx="20" cy="9" r="4.2"/><circle cx="8" cy="27" r="3.2"/><circle cx="20" cy="31" r="3.2"/><circle cx="32" cy="27" r="3.2"/>
-        <path d="M20 13v14M20 16L9 24M20 16l11 8"/>
+        <g fill="#4c8dff"><polygon points="8.17,28.34 12.83,30.66 22.75,6.87 21.25,6.13"/><polygon points="8.68,27.64 12.32,31.36 32.09,9.6 30.91,8.4"/><polygon points="9.43,27.13 11.57,31.87 35.35,19.28 34.65,17.72"/><circle cx="10.5" cy="29.5" r="7.3"/></g><circle class="node" cx="22" cy="6.5" r="2.7" fill="#c084fc"/><circle class="node" cx="35" cy="18.5" r="2.7" fill="#c084fc"/><g transform="translate(31.5 9)"><path class="spark" fill="#fff" d="M0-4.9 1.3-1.3 4.9 0 1.3 1.3 0 4.9-1.3 1.3-4.9 0-1.3-1.3Z"/></g><circle cx="10.5" cy="29.5" r="4.6" fill="#fff"/>
       </svg>
       <div>
-        <h1>SPHEREx Blink Tree</h1>
-        <p>Blink through NASA&rsquo;s infrared sky survey and spot what moves or changes.</p>
+        <h1>SPHEREx Blink Tree <span class="team">Kuyruk Team</span></h1>
+        <p data-i18n="tagline"></p>
       </div>
     </div>
     <form id="search" class="search" autocomplete="off">
-      <input id="q" type="text" spellcheck="false" aria-label="Coordinates or object name"
-             placeholder="RA and Dec (133.795 -7.245 or 08h55m10.8s -07d14m42.5s) or an object name">
-      <label class="fov" for="fov">Field
+      <input id="q" type="text" spellcheck="false" data-i18n-aria="search.aria" data-i18n-placeholder="search.placeholder">
+      <label class="fov" for="fov"><span data-i18n="search.field"></span>
         <select id="fov">
           <option value="120">2&prime;</option>
           <option value="180">3&prime;</option>
@@ -34,153 +32,196 @@
           <option value="1800">30&prime;</option>
         </select>
       </label>
-      <button type="submit" id="go">Blink</button>
+      <button type="submit" id="go" data-i18n="search.go"></button>
     </form>
-    <div class="examples" id="examples" aria-label="Example targets"></div>
+    <div class="lang" id="lang" role="group" data-i18n-aria="lang.label">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="tr">TR</button>
+    </div>
+    <div class="examples" id="examples"></div>
   </header>
 
   <div class="demo-banner" id="demo-banner" hidden></div>
+  <div class="demo-banner" id="archive-note" hidden></div>
 
   <main class="layout">
-    <section class="sky" id="sky">
-      <div class="sky-map" id="skymap"></div>
-      <div class="sky-bar">
-        <div class="segmented" id="sky-zoom">
-          <button type="button" data-zoom="sky">Whole sky</button>
-          <button type="button" data-zoom="scan">Scan area</button>
-          <button type="button" data-zoom="field">Field</button>
-        </div>
-        <button type="button" id="sky-blink" class="ghost" title="Blink the spot under the cross-hair at the centre of the map">Blink map centre</button>
-        <button type="button" id="sky-full" class="ghost" title="Show the map across the whole window (Esc to leave)">Full screen</button>
+    <!-- 1: where on the sky -->
+    <section class="card sky" id="sky">
+      <div class="card-head">
+        <h2><span data-i18n="card.sky.title"></span><small data-i18n="card.sky.sub"></small></h2>
+        <button type="button" id="sky-full" class="ghost small" data-i18n="sky.full" data-i18n-title="sky.full.title"></button>
+        <button type="button" class="help-toggle" data-i18n-title="help.toggle" data-i18n-aria="help.toggle">?</button>
       </div>
-      <label class="slider sky-wave">Map wavelength <output id="sky-wave-out"></output>
+      <div class="sky-map" id="skymap"></div>
+      <div class="bar">
+        <div class="segmented" id="sky-zoom">
+          <button type="button" data-zoom="sky" data-i18n="sky.zoom.sky"></button>
+          <button type="button" data-zoom="scan" data-i18n="sky.zoom.scan"></button>
+          <button type="button" data-zoom="field" data-i18n="sky.zoom.field"></button>
+        </div>
+        <button type="button" id="sky-blink" class="ghost" data-i18n="sky.blink" data-i18n-title="sky.blink.title"></button>
+      </div>
+      <label class="slider"><span data-i18n="sky.wave"></span> <output id="sky-wave-out"></output>
         <input id="sky-wave" type="range" min="0" max="101" step="1">
       </label>
-      <div class="sky-bar">
-        <select id="sky-survey" aria-label="Sky map survey"></select>
-        <label class="check"><input id="sky-feet" type="checkbox" checked> SPHEREx footprints</label>
+      <div class="bar">
+        <div class="segmented" id="sky-survey" role="group" data-i18n-aria="sky.survey.aria"></div>
+        <label class="check"><input id="sky-feet" type="checkbox" checked> <span data-i18n="sky.feet"></span></label>
       </div>
       <ul class="legend">
-        <li><span class="swatch field"></span><span>The field being blinked: the same patch of sky as the blink image.</span></li>
-        <li><span class="swatch feet"></span><span id="sky-feet-note">SPHEREx exposures of the epoch on screen.</span></li>
-        <li><span class="swatch cross">+</span><span>Point at either picture: a white cross marks the same spot on the other one.</span></li>
+        <li><i class="swatch field"></i><span data-i18n="sky.legend.field"></span></li>
+        <li><i class="swatch feet"></i><span id="sky-feet-note"></span></li>
+        <li><i class="swatch cross">+</i><span data-i18n="sky.legend.pointer"></span></li>
       </ul>
-      <p class="hint">Drag to turn the sky, scroll to zoom. &ldquo;Field&rdquo; shows exactly the area of the blink image.</p>
+      <p class="help" data-i18n="sky.help"></p>
     </section>
 
-    <section class="stage">
+    <!-- 2: watch it change -->
+    <section class="card stage">
+      <div class="card-head">
+        <h2><span data-i18n="card.blink.title"></span><small data-i18n="card.blink.sub"></small></h2>
+        <button type="button" class="help-toggle" data-i18n-title="help.toggle" data-i18n-aria="help.toggle">?</button>
+      </div>
       <div class="viewer" id="viewer">
-        <canvas id="view" aria-label="SPHEREx image of the selected field"></canvas>
+        <canvas id="view" data-i18n-aria="blink.aria"></canvas>
         <div class="message" id="message" hidden></div>
         <div class="progress" id="progress" hidden>
-          <div class="track"><div class="bar" id="bar"></div></div>
+          <div class="track"><div class="fill" id="bar"></div></div>
           <span id="progress-label"></span>
         </div>
       </div>
       <div class="transport">
-        <button id="prev" type="button" title="Previous epoch (left arrow)" aria-label="Previous epoch">&#9664;</button>
-        <button id="play" type="button" title="Play or pause (space)">Pause</button>
-        <button id="next" type="button" title="Next epoch (right arrow)" aria-label="Next epoch">&#9654;</button>
+        <button id="prev" type="button" data-i18n-title="play.prev" data-i18n-aria="play.prev">&#9664;</button>
+        <button id="play" type="button" data-i18n-title="play.title"></button>
+        <button id="next" type="button" data-i18n-title="play.next" data-i18n-aria="play.next">&#9654;</button>
         <div class="timeline" id="timeline"></div>
       </div>
       <div class="readout" id="readout">&nbsp;</div>
+      <p class="help" data-i18n="blink.help"></p>
     </section>
 
-    <aside class="panel">
-      <section>
-        <h2>Detector array</h2>
-        <div class="bands" id="bands"></div>
-        <p class="hint">SPHEREx has six detectors, each covering a slice of the near-infrared. Cold objects such as brown dwarfs are brightest in D5 and D6.</p>
-      </section>
+    <!-- 3: adjust -->
+    <aside class="card panel">
+      <div class="card-head">
+        <h2><span data-i18n="card.controls.title"></span><small data-i18n="card.controls.sub"></small></h2>
+        <button type="button" class="help-toggle" data-i18n-title="help.toggle" data-i18n-aria="help.toggle">?</button>
+      </div>
 
-      <section>
-        <h2>View</h2>
+      <div class="group">
+        <h3 data-i18n="ctl.detector"></h3>
+        <div class="bands" id="bands"></div>
+        <label class="row" data-i18n-title="ctl.limit.title"><span data-i18n="ctl.limit"></span>
+          <select id="limit">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="40">40</option>
+            <option value="80">80</option>
+            <option value="160">160</option>
+            <option value="0" data-i18n="ctl.limit.all"></option>
+          </select>
+        </label>
+      </div>
+
+      <div class="group">
+        <h3 data-i18n="ctl.view"></h3>
         <div class="segmented" id="modes">
-          <button type="button" data-mode="blink">Blink</button>
-          <button type="button" data-mode="diff">Difference</button>
-          <button type="button" data-mode="sum">Sum</button>
+          <button type="button" data-mode="blink" data-i18n="mode.blink"></button>
+          <button type="button" data-mode="diff" data-i18n="mode.diff"></button>
+          <button type="button" data-mode="sum" data-i18n="mode.sum"></button>
         </div>
-        <label class="row" id="ref-row" hidden>Subtract
+        <label class="row" id="ref-row" hidden><span data-i18n="ref.label"></span>
           <select id="ref"></select>
         </label>
-        <p class="hint" id="mode-hint"></p>
-      </section>
+      </div>
 
-      <section>
-        <h2>Display</h2>
-        <label class="slider">Blink interval <output id="speed-out"></output>
-          <input id="speed" type="range" min="100" max="2000" step="50">
-        </label>
-        <label class="slider">Brightness range <output id="white-out"></output>
-          <input id="white" type="range" min="0" max="100" step="1">
-        </label>
-        <label class="slider">Black level <output id="black-out"></output>
-          <input id="black" type="range" min="0" max="10" step="0.5">
-        </label>
-        <label class="slider">Smoothing <output id="smooth-out"></output>
-          <input id="smooth" type="range" min="0" max="2" step="0.25">
-        </label>
-        <div class="checks">
-          <label><input id="invert" type="checkbox"> Invert</label>
-          <label><input id="interp" type="checkbox"> Soft pixels</label>
-          <label><input id="marks" type="checkbox"> Markers</label>
-          <label title="Mark the stars the Gaia mission already knows (key: G)"><input id="gaia" type="checkbox"> Gaia stars</label>
-          <label title="Show where SPHEREx itself flagged the data as doubtful (key: F)"><input id="flags" type="checkbox"> Flags</label>
+      <div class="group">
+        <h3 data-i18n="ctl.display"></h3>
+        <div class="sliders">
+          <label class="slider"><span data-i18n="ctl.speed"></span> <output id="speed-out"></output>
+            <input id="speed" type="range" min="100" max="2000" step="50">
+          </label>
+          <label class="slider"><span data-i18n="ctl.white"></span> <output id="white-out"></output>
+            <input id="white" type="range" min="0" max="100" step="1">
+          </label>
+          <label class="slider"><span data-i18n="ctl.black"></span> <output id="black-out"></output>
+            <input id="black" type="range" min="0" max="10" step="0.5">
+          </label>
+          <label class="slider"><span data-i18n="ctl.smooth"></span> <output id="smooth-out"></output>
+            <input id="smooth" type="range" min="0" max="2" step="0.25">
+          </label>
         </div>
-        <p class="hint" id="gaia-note" hidden></p>
-        <p class="hint" id="flags-note" hidden></p>
-      </section>
+        <div class="checks">
+          <label><input id="invert" type="checkbox"> <span data-i18n="ctl.invert"></span></label>
+          <label><input id="interp" type="checkbox"> <span data-i18n="ctl.interp"></span></label>
+          <label><input id="marks" type="checkbox"> <span data-i18n="ctl.marks"></span></label>
+          <label data-i18n-title="ctl.gaia.title"><input id="gaia" type="checkbox"> <span data-i18n="ctl.gaia"></span></label>
+          <label data-i18n-title="ctl.flags.title"><input id="flags" type="checkbox"> <span data-i18n="ctl.flags"></span></label>
+        </div>
+        <p class="note" id="gaia-note" hidden></p>
+        <p class="note" id="flags-note" hidden></p>
+      </div>
 
-      <section>
-        <h2>This field</h2>
+      <div class="group">
+        <h3 data-i18n="ctl.facts"></h3>
         <dl class="facts" id="facts"></dl>
-      </section>
+      </div>
+
+      <p class="help" id="mode-hint"></p>
+      <p class="help" data-i18n="ctl.help"></p>
     </aside>
   </main>
 
-  <section class="spectrum-wrap" id="spectrum-wrap">
-    <div class="spectrum-head">
-      <h2>Spectrum and light curve</h2>
+  <!-- 4: what is it? -->
+  <section class="card wide" id="spectrum-wrap">
+    <div class="card-head">
+      <h2><span data-i18n="card.spec.title"></span><small data-i18n="card.spec.sub"></small></h2>
       <div class="segmented" id="spec-kind" hidden>
-        <button type="button" data-kind="core" title="Brightness of the star inside the measuring circle">Star itself</button>
-        <button type="button" data-kind="ring" title="For saturated stars: the light in a ring around the star">Ring around it</button>
+        <button type="button" data-kind="core" data-i18n="spec.kind.core" data-i18n-title="spec.kind.core.title"></button>
+        <button type="button" data-kind="ring" data-i18n="spec.kind.ring" data-i18n-title="spec.kind.ring.title"></button>
       </div>
       <div class="segmented" id="spec-views">
-        <button type="button" data-view="spectrum">Spectrum</button>
-        <button type="button" data-view="curve">Light curve</button>
+        <button type="button" data-view="spectrum" data-i18n="spec.view.spectrum"></button>
+        <button type="button" data-view="curve" data-i18n="spec.view.curve"></button>
       </div>
-      <label class="check"><input id="spec-log" type="checkbox"> Log scale</label>
-      <button type="button" class="ghost" id="spec-target">Measure the target</button>
+      <label class="check"><input id="spec-log" type="checkbox"> <span data-i18n="spec.log"></span></label>
+      <button type="button" class="ghost" id="spec-target" data-i18n="spec.target"></button>
+      <button type="button" class="help-toggle" data-i18n-title="help.toggle" data-i18n-aria="help.toggle">?</button>
     </div>
-    <p class="hint" id="spec-status"></p>
+    <p class="note" id="spec-status"></p>
     <div class="spectrum-plot">
-      <canvas id="spec" aria-label="Spectrum of the selected source"></canvas>
+      <canvas id="spec" data-i18n-aria="spec.aria"></canvas>
       <div class="progress" id="spec-progress" hidden>
-        <div class="track"><div class="bar" id="spec-bar"></div></div>
+        <div class="track"><div class="fill" id="spec-bar"></div></div>
         <span id="spec-progress-label"></span>
       </div>
     </div>
     <div class="spec-legend" id="spec-legend"></div>
+    <p class="help" data-i18n="spec.help"></p>
   </section>
 
-  <section class="exposures-wrap" id="exposures-wrap" hidden>
-    <h2>Exposures behind this frame</h2>
-    <p class="hint" id="exposures-note"></p>
-    <div class="tree" id="exposures"></div>
+  <section class="card wide" id="exposures-wrap" hidden>
+    <div class="card-head">
+      <h2><span data-i18n="card.exposures.title"></span></h2>
+    </div>
+    <p class="note" id="exposures-note"></p>
+    <div class="table exposures" id="exposures"></div>
   </section>
 
-  <section class="tree-wrap" id="tree-wrap" hidden>
-    <h2>What SPHEREx has for this spot</h2>
-    <p class="hint">Each column is one visit of the telescope; each row is one detector array. Numbers are exposures. Click a row to blink that detector.</p>
-    <div class="tree" id="tree"></div>
+  <section class="card wide" id="tree-wrap" hidden>
+    <div class="card-head">
+      <h2><span data-i18n="card.tree.title"></span></h2>
+      <button type="button" class="help-toggle" data-i18n-title="help.toggle" data-i18n-aria="help.toggle">?</button>
+    </div>
+    <div class="table tree" id="tree"></div>
+    <p class="help" data-i18n="tree.help"></p>
   </section>
 
   <footer class="foot">
-    <p>Images: NASA SPHEREx mission (JPL/Caltech), served by the NASA/IPAC Infrared Science Archive. Positions: ESA Gaia DR3 and SIMBAD.
-       Sky map: Aladin Lite (CDS, Strasbourg). Built for the NASA Space Apps Challenge.</p>
-    <p class="keys">Keys: <kbd>space</kbd> play/pause &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &middot; <kbd>1</kbd>&ndash;<kbd>6</kbd> detector &middot; <kbd>D</kbd> difference &middot; <kbd>G</kbd> Gaia stars &middot; <kbd>F</kbd> flags &middot; click the image for a spectrum</p>
+    <img class="team-badge" src="img/kuyruk-team.jpg" alt="Kuyruk Team" width="46" height="46">
+    <p data-i18n="foot.credits"></p>
   </footer>
 
+  <script src="js/i18n.js"></script>
   <script src="js/targets.js"></script>
   <script src="js/skymap.js"></script>
   <script src="js/spectrum.js"></script>

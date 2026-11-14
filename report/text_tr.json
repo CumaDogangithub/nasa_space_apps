@@ -1,0 +1,296 @@
+{
+  "lang": "tr",
+  "pdf": "SPHEREx-Blink-Tree-Rapor-TR.pdf",
+  "title": "SPHEREx Blink Tree · Kuyruk Team · Proje raporu",
+  "event": "NASA Space Apps Challenge 2026",
+  "event_caps": "NASA SPACE APPS CHALLENGE 2026",
+  "repo": "github.com/CumaDogangithub/nasa_space_apps",
+
+  "cover": {
+    "kind": "PROJE RAPORU · KASIM 2026",
+    "pitch": "Gökyüzünün kızılötesi filmini izle: hareket edeni ve değişeni yakala.",
+    "lead": "Bir koordinat ya da cisim adı yaz. Araç, NASA’nın SPHEREx teleskobunun o noktayı gördüğü bütün görüntüleri arşivden canlı okur, hizalar ve kısa bir film gibi oynatır. Bir yıldıza tıkla: 0.75–5 µm spektrumu ve ışık eğrisi anında çizilir.",
+    "stats": [
+      { "value": "5 / 5", "label": "test hedefi araçta çalışıyor" },
+      { "value": "102", "label": "kızılötesi renk, 0.75–5 µm" },
+      { "value": "< %1", "label": "her 65 MB’lık dosyadan okunan kısım (3′ alan)" },
+      { "value": "0.4–0.8″", "label": "Gaia’ya göre ortanca konum farkı" }
+    ],
+    "team_label": "TAKIM",
+    "team": "Kuyruk Team",
+    "author": "Cuma Doğan",
+    "challenge_label": "GÖREV",
+    "challenge": "SPHEREx görüntülerini zaman içinde canlandıran, herkese açık bir web aracı",
+    "code_label": "KAYNAK KOD"
+  },
+
+  "p2": {
+    "title": "Görev ve çözümümüz",
+    "lead": "Görev, WiseView’in WISE için yaptığını SPHEREx için yapmaktı: aynı gökyüzü parçasını farklı tarihlerde art arda göstermek.",
+    "ask": {
+      "title": "Görev ne istiyordu?",
+      "text": [
+        "SPHEREx, tüm gökyüzünü 102 kızılötesi renkte (0.75–5 µm) tarayan bir NASA uzay teleskobudur. Aynı noktaya yaklaşık altı ayda bir geri döner; verileri herkese açıktır ve her hafta yenilenir.",
+        "İstenen şuydu: kullanıcı bir koordinat girsin, araç o gökyüzü parçasının SPHEREx görüntülerini küçük bir video gibi art arda göstersin. Böylece hareket eden ya da parlaklığı değişen cisimler kolayca fark edilsin.",
+        "Beş test hedefi verildi: Barnard Yıldızı, Epsilon Indi B, WISE 0855, RW Aurigae ve R Draconis."
+      ]
+    },
+    "answer": {
+      "title": "Çözümümüz",
+      "text": [
+        "SPHEREx Blink Tree bir web sayfasıdır. Koordinat ya da cisim adı yazılır; araç o noktayı içeren bütün SPHEREx görüntülerini arşivde bulur, yalnız gereken pikselleri okur, gökyüzünde hizalar ve ziyaret ziyaret üst üste bindirip film gibi oynatır.",
+        "Hiçbir şey önceden hesaplanmaz: araç her alan için arşive sorar. Bu yüzden bütün gökyüzünde çalışır ve yeni veri geldikçe kendiliğinden güncel kalır.",
+        "Arayüz Türkçe ve İngilizcedir. Dört numaralı kutu kullanıcıyı haritadan filme, filmden spektruma götürür."
+      ]
+    },
+    "caption": "Aracın ana ekranı: Barnard Yıldızı, D2 dedektörü (1.10–1.63 µm). Mavi halkalar Gaia’nın bildiği yıldızlardır; pembe ok, yıldızın beş yıl sonra varacağı yeri gösterir. Soldaki haritada yeşil kareler, o ziyaretteki 24 SPHEREx pozundan altısının gökyüzündeki izleridir.",
+    "boxes": [
+      { "n": "1", "name": "Gökyüzü haritası", "text": "Nereye baktığını ve teleskobun o noktayı nasıl taradığını gösterir; 102 kanal bir kaydırıcıyla gezilir." },
+      { "n": "2", "name": "Film", "text": "Aynı gökyüzü parçası, farklı tarihlerde. Fark görünümü değişmeyeni siler; Toplam daha derin bir görüntü verir." },
+      { "n": "3", "name": "Ayarlar", "text": "Altı dedektör, görüş alanı, kontrast, Gaia yıldızları ve SPHEREx’in kalite bayrakları." },
+      { "n": "4", "name": "Spektrum ve ışık eğrisi", "text": "Bir yıldıza tıklanınca 0.75–5 µm spektrumu ve parlaklığının zamanla değişimi çizilir." }
+    ]
+  },
+
+  "p3": {
+    "title": "Nasıl çalışır?",
+    "lead": "Tarayıcıda sade bir sayfa, küçük bir Python sunucusu ve NASA’nın açık arşivleri. Arada hazır bir görüntü deposu yok.",
+    "flow": {
+      "browser": {
+        "title": "Tarayıcı",
+        "sub": "düz HTML + JavaScript, kurulum yok",
+        "items": ["film · fark · toplam", "kontrast ve yumuşatma", "spektrum ve ışık eğrisi", "gökyüzü haritası (Aladin Lite)"]
+      },
+      "ask": "konum, alan, dedektör",
+      "answer": "ham sayısal kareler",
+      "server": {
+        "title": "Sunucu",
+        "sub": "Python · FastAPI + astropy",
+        "items": ["görüntü arama", "hizalama ve yığma", "parlaklık ölçümü", "disk önbelleği"]
+      },
+      "sources": [
+        { "title": "IRSA görüntü araması (SIA2)", "sub": "“Bu noktayı hangi görüntüler kapsıyor?” · 1–5&nbsp;sn" },
+        { "title": "AWS S3’teki açık SPHEREx verisi", "sub": "yalnız gereken baytlar · HTTP range istekleri" },
+        { "title": "ESA Gaia DR3 · SIMBAD", "sub": "yıldız konumları, öz hareketler, isimler" }
+      ]
+    },
+    "steps": [
+      { "title": "Görüntüleri bul.", "text": "IRSA’nın görüntü arama servisi, ayak izi o noktayı içeren bütün SPHEREx görüntülerini 1–5 saniyede listeler." },
+      { "title": "Yalnız gereken pikselleri oku.", "text": "Her görüntü 62–66 MB’lık bir dosyadır. Sunucu dosyayı indirmez; başlığı ve hedefin çevresindeki satırları HTTP “range” istekleriyle okur. 3′ lik bir alan için dosya başına yaklaşık 0.4 MB, yani dosyanın %1’inden azı yeter." },
+      { "title": "Hizala.", "text": "Her küçük pencere, görüntünün kendi astrometrisiyle, kuzey yukarıda olacak biçimde ortak bir ızgaraya taşınır ve yerel gökyüzü parlaklığı çıkarılır." },
+      { "title": "Ziyaretlere ayır ve yığ.", "text": "15 günden uzun bir boşluk yeni bir ziyaret (dönem) başlatır. Her dönemde bir dedektörün bütün pozları, aykırı değerler atılarak ortalanır; doymuş yıldız çekirdekleri ortalamaya katılmaz, işaretlenir." },
+      { "title": "Göster.", "text": "Tarayıcı ham sayısal kareleri alır; kontrast, film, fark ve toplam işlemlerini kendisi yapar. Bu yüzden ayarlar anında tepki verir." }
+    ],
+    "spec": {
+      "title": "Spektrograf olmadan spektrum",
+      "text": ["SPHEREx’te prizma yoktur. Her dedektörün önündeki süzgecin geçirdiği renk, dedektör boyunca yavaşça değişir; teleskop pozlar arasında kaydıkça yıldız her seferinde başka bir renge düşer. Araç, tıklanan noktayı altı dedektörün bütün pozlarında 12″ yarıçaplı bir daire içinde ölçer ve her pozun dalga boyunu dedektörün kendi tablosundan bulur. Noktalar birleşince 0.75–5 µm spektrumu ortaya çıkar.",
+        "Işık eğrisinde her poz, yıldızın aynı dalga boyundaki kendi ortalamasına bölünür. Böylece kırmızı bir yıldız, ziyaretler farklı dalga boylarını örnekledi diye değişiyormuş gibi görünmez."]
+    },
+    "fresh": {
+      "title": "Neden hep güncel?",
+      "text": "Araç hazır görüntü deposu tutmaz; arşive “şu an ne var?” diye sorar ve yanıtı en çok bir gün kullanır. Her hafta eklenen görüntüler kendiliğinden görünür. Yeni bir veri sürümü için tek satır yeter: <code>releases.json</code> dosyasına koleksiyon adını eklemek."
+    },
+    "coverage": "Bir nokta için arşivde ne var: dedektör ve ziyaret başına poz sayısı (RW Aurigae). Satıra tıklamak o dedektörün filmini açar.",
+    "stats": [
+      { "value": "1–5 sn", "label": "arşivde görüntü arama" },
+      { "value": "≈ 0.4 MB", "label": "dosya başına okunan veri (3′ alan)" },
+      { "value": "5–30 sn", "label": "yeni bir alanın ilk görüntüsü; sonrası önbellekten anında" },
+      { "value": "6.15″", "label": "bir SPHEREx pikselinin gökyüzündeki boyutu" }
+    ]
+  },
+
+  "p4": {
+    "title": "Sonuçlar: hareket edenler",
+    "lead": "Beş test hedefinin beşi de araçta çalışıyor. Bu iki sayfadaki bütün resimler aracın kendi ekran görüntüleridir.",
+    "targets": [
+      {
+        "name": "Barnard Yıldızı",
+        "tag": "gökyüzünün en hızlı yıldızı",
+        "text": "SPHEREx bu yıldızı üç kez ziyaret etti: Ağustos 2025, Mart 2026 ve Ağustos 2026. İlk ve son ziyaret arasında yıldız yaklaşık 10″ kuzeye kaydı. Fark görüntüsünde eski yeri koyu, yeni yeri parlak görünür; pembe ok, Gaia’nın ölçtüğü hareketle beş yıl sonra varacağı yeri gösterir.",
+        "media": [
+          { "kind": "sq", "img": "barnard_first", "cap": "26 Ağustos 2025" },
+          { "kind": "sq", "img": "barnard_last", "cap": "21 Ağustos 2026" },
+          { "kind": "sq", "img": "barnard_diff", "cap": "fark: son ziyaret − ilk ziyaret" }
+        ],
+        "keys_class": "",
+        "keys": [
+          { "value": "10.4″", "label": "yıllık hareket" },
+          { "value": "≈ 1.7 piksel", "label": "ilk ve son ziyaret arasındaki kayma" },
+          { "value": "358", "label": "arşivdeki görüntü" }
+        ]
+      },
+      {
+        "name": "WISE 0855−0714",
+        "tag": "bilinen en soğuk kahverengi cüce",
+        "text": "Görevde verilen koordinat cismin 2010’daki konumudur; yılda 8.1″ hareket ettiği için bugün yaklaşık 2′ batıdadır ve araç alanı bugünkü yerine ortalar. Cüce yalnız D6 dedektöründe görünür. Fark görüntüsünde sabit yıldızlar silinir; cüce, hareket yönünde koyu–parlak bir çift bırakır.",
+        "media": [
+          { "kind": "sq", "img": "wise_first", "cap": "12 Kasım 2025 · D6" },
+          { "kind": "sq", "img": "wise_last", "cap": "27 Nisan 2026 · D6" },
+          { "kind": "sq", "img": "wise_diff", "cap": "fark: Nisan 2026 − Kasım 2025" }
+        ],
+        "keys_class": "",
+        "keys": [
+          { "value": "D6", "label": "yalnız 4.42–5.00 µm’de görünür" },
+          { "value": "8.1″", "label": "yıllık hareket" },
+          { "value": "≈ 2′", "label": "2010’daki konumundan uzaklığı" }
+        ]
+      },
+      {
+        "name": "Epsilon Indi B",
+        "tag": "bir çift kahverengi cüce",
+        "text": "Araç cismi beş ziyaret boyunca izleyip 454 pozda ölçtü. Spektrumda 1.3, 1.6, 2.1 ve 4 µm civarında tepeler, aralarında derin çukurlar var: kahverengi cüce atmosferindeki su buharı ve metanın imzası. Hazır bir spektrum dosyası kullanılmadı; her nokta görüntülerden o anda ölçüldü.",
+        "media": [
+          { "kind": "sq", "img": "epsindb_frame", "cap": "11 Ekim 2025 · ok: Gaia hareketi" },
+          { "kind": "plot", "img": "epsindb_spec", "cap": "spektrum; renkler ziyaretlerdir (en iyi örneklenen üçü)" }
+        ],
+        "keys_class": "",
+        "keys": [
+          { "value": "454", "label": "pozdan ölçülen spektrum" },
+          { "value": "4.7″", "label": "yıllık hareket" },
+          { "value": "≈ 58 mJy", "label": "en parlak olduğu yer: 4 µm" }
+        ]
+      }
+    ]
+  },
+
+  "p5": {
+    "title": "Sonuçlar: parlaklığı değişenler",
+    "lead": "Her poz yıldızı farklı bir dalga boyunda gördüğü için araç, değişimi yalnız zamana göre değil renge göre de gösterir.",
+    "targets": [
+      {
+        "name": "RW Aurigae",
+        "tag": "düzensiz değişen genç yıldız",
+        "text": "Araç yıldızı üç ziyarette (Eylül 2025, Mart 2026, Eylül 2026) 332 pozda ölçtü. Bir yıl içinde 3.8–5 µm’deki parlaklığı yaklaşık yarıya indi (4.4–5 µm’de 2900 → 1500 mJy); 0.75–1.1 µm’de ise yaklaşık 1.5 katına çıktı. Tek renkte bakan bir araç bu değişimin yalnız bir yüzünü görürdü.",
+        "media": [
+          { "kind": "half", "img": "rwaur_spec", "cap": "Spektrum, ziyarete göre renkli: uzun dalga boylarında üç ziyaret birbirinden ayrılıyor." },
+          { "kind": "half", "img": "rwaur_curve", "cap": "Işık eğrisi, dedektöre göre renkli: D5 ve D6 sönerken D1 parlıyor (1 = yıldızın kendi ortalaması)." }
+        ],
+        "keys_class": "none",
+        "keys": []
+      },
+      {
+        "name": "R Draconis",
+        "tag": "245 günde bir nabız gibi atan kırmızı dev",
+        "text": "Kuzeydeki derin alana yakın olduğu için SPHEREx onu neredeyse kesintisiz izliyor. Yıldız SPHEREx için fazla parlak: okunan 592 pozun 591’inde çekirdeği doymuş. Araç bunu fark eder ve çekirdek yerine çevresindeki halkadaki ışığı (merkezden 25–43″) ölçer. Bu ışık ziyaretten ziyarete iki kattan fazla değişiyor.",
+        "media": [
+          { "kind": "sq", "img": "rdra_frame", "cap": "7 Aralık 2025 · daireler: halka" },
+          { "kind": "plot", "img": "rdra_curve", "cap": "halkadaki ışığın zamanla değişimi; renkler dedektörlerdir" }
+        ],
+        "keys_class": "",
+        "keys": [
+          { "value": "2493", "label": "arşivdeki görüntü" },
+          { "value": "591 / 592", "label": "pozda çekirdek doymuş" },
+          { "value": "25–43″", "label": "ölçülen halka" }
+        ]
+      }
+    ],
+    "glance": {
+      "title": "Beş hedef bir bakışta",
+      "head": ["Hedef", "Arşivdeki görüntü", "Filmdeki ziyaret", "Araç ne gösteriyor?"],
+      "rows": [
+        ["Barnard Yıldızı", "358", "3", "bir yılda 10″ kuzeye kayma; Gaia’nın öngördüğü yerde"],
+        ["WISE 0855−0714", "258", "4", "yalnız D6’da görünür; fark görüntüsünde hareket izi"],
+        ["Epsilon Indi B", "458", "5", "hareket ve kahverengi cüce spektrumu"],
+        ["RW Aurigae", "335", "3", "4–5 µm’de yarıya sönme, 1 µm’de parlama"],
+        ["R Draconis", "2493", "5", "doymuş çekirdek; çevresindeki halkadan ışık eğrisi"]
+      ],
+      "note": "Toplam 3902 görüntü. “Filmdeki ziyaret”, hedefin varsayılan dedektöründeki kare sayısıdır (WISE 0855 için D6, diğerleri için D2)."
+    }
+  },
+
+  "p6": {
+    "title": "Görevin ötesi ve doğrulama",
+    "lead": "Görev metni isteğe bağlı sekiz özellik sayıyordu. Sekizi de araçta var.",
+    "wishes": [
+      { "wish": "Yeni veri sürümlerine kolay uyum", "done": "Ön hesaplama yok; yeni görüntüler kendiliğinden gelir. Yeni sürüm için <code>releases.json</code>’a tek satır." },
+      { "wish": "102 bandın yaratıcı kullanımı", "done": "Altı dedektör ayrı ya da birlikte yığılır; haritada 102 kanal gezilir; tıklanan yıldızın spektrumu çıkar." },
+      { "wish": "Zamanları toplama ve çıkarma", "done": "Fark görünümü seçilen ziyareti çıkarır; Toplam hepsinin ortalamasını alır." },
+      { "wish": "Seçilebilir görüş alanı", "done": "1′ ile 30′ arasında; alan büyüdükçe piksel ölçeği kendiliğinden ayarlanır." },
+      { "wish": "Gaia ve WISE katmanları", "done": "Gaia DR3 yıldızları karenin tarihine taşınarak çizilir; haritada WISE, 2MASS ve DSS katmanları var." },
+      { "wish": "Adreste koordinat, gömülebilirlik", "done": "Görünümün tamamı adrestedir (konum, alan, dedektör, mod, dil); <code>embed=1</code> ile başka sayfaya gömülür." },
+      { "wish": "Kirlenme bayrakları ve üst veri", "done": "SPHEREx’in kalite bayrakları karede boyanır ve sade dille açıklanır; her poz saati ve dosyasıyla listelenir." },
+      { "wish": "astropy ve Aladin Lite", "done": "Sunucu astropy ile okur ve hizalar; gökyüzü haritası Aladin Lite’tır." }
+    ],
+    "sky": "Gökyüzü haritası: turuncu işaret filmi izlenen alan, yeşil kareler o ziyaretin SPHEREx pozlarından birkaçı.",
+    "flags": "Bayraklar açıkken karedeki her poz listelenir: çekim saati, alan merkezinde gördüğü dalga boyu, SPHEREx’in bayrakları ve özgün dosyanın bağlantısı.",
+    "plus": {
+      "title": "Listede olmayan eklerimiz",
+      "items": [
+        "Türkçe ve İngilizce arayüz",
+        "Sunucusuz çalışan çevrimdışı demo",
+        "Cisim adıyla arama (SIMBAD)",
+        "Doymuş yıldızlar için halka ölçümü",
+        "Harita ile film arasında bağlı imleç",
+        "Arşivin araması yanıt vermediğinde de çalışır"
+      ]
+    },
+    "check": {
+      "title": "Doğru mu?",
+      "cards": [
+        { "value": "0.4–0.8″", "label": "Gaia DR3’e göre ortanca konum farkı", "text": "Üç 6′ lik test alanında (D2), yıldızların karede olması gereken yer ile göründüğü yer karşılaştırıldı. Fark, 6.15″ lik bir SPHEREx pikselinin küçük bir kesridir." },
+        { "value": "0.94 · 1.01 · 0.97", "label": "SPHEREx / 2MASS parlaklık oranı (J,&nbsp;H,&nbsp;Ks)", "text": "RW Aurigae yakınındaki beş sıradan yıldız aynı yöntemle ölçülüp 2MASS kataloğuyla karşılaştırıldı." },
+        { "value": "5–30 sn", "label": "yeni bir alanın ilk görüntüsü", "text": "Süre, alanın genişliğine ve okunan dedektör sayısına bağlıdır. Sonuçlar önbelleğe alınır; ikinci açılış anında gelir." }
+      ]
+    },
+    "limits": {
+      "title": "Dürüst sınırlar.",
+      "text": "Parlaklıklar hızlı bakış değeridir: ölçüm dairesine giren komşu yıldızlar sonuca eklenir, dairenin dışına taşan ışık için düzeltme yapılmaz. SPHEREx pikseli 6.15″ olduğundan birbirine çok yakın cisimler ayrılamaz. Çok parlak yıldızların çekirdeği doyar; onlarda yalnız halkadaki ışık izlenebilir."
+    }
+  },
+
+  "p7": {
+    "title": "Kimler için, nasıl kurulur, sırada ne var?",
+    "lead": "Araç bugün çalışıyor: kurulumu üç komut, denemesi bir dakika.",
+    "who": {
+      "title": "Kimler için?",
+      "items": [
+        { "name": "Gönüllü gökbilimciler", "text": "Yakın, soğuk ve hızlı cisimleri SPHEREx’in 102 renginde arayabilirler; WiseView’den alıştıkları yöntemle." },
+        { "name": "Öğrenciler ve öğretmenler", "text": "“Yıldızlar hareket eder mi?” ve “spektrum nedir?” sorularını gerçek uzay verisiyle gösterebilirler." },
+        { "name": "Araştırmacılar", "text": "Bir kaynağın bütün SPHEREx ziyaretlerine, spektrumuna ve kalite bayraklarına birkaç saniyede bakabilirler." }
+      ]
+    },
+    "run": {
+      "title": "Nasıl çalıştırılır?",
+      "before": "Python 3.10 ya da üstü yeterlidir (macOS ve Linux’ta <code>.venv/bin/python</code>):",
+      "code": "python -m venv .venv\n.venv/Scripts/python -m pip install -r requirements.txt\n.venv/Scripts/python -m uvicorn backend.app:app --port 8000",
+      "after": "Sonra tarayıcıda <code>http://localhost:8000</code> açılır. Kurulum yapmadan görmek için <code>web/index.html</code> dosyasını açmak yeter: beş test hedefi kayıtlı veriden gösterilir."
+    },
+    "try": {
+      "title": "Bir dakikada dene",
+      "items": [
+        "Üstteki <b>WISE 0855−0714</b> düğmesine bas: film D6 dedektöründe başlar.",
+        "<b>Fark</b> görünümüne geç (D tuşu): sabit yıldızlar silinir, cüce kalır.",
+        "<b>Epsilon Indi B</b>’yi seç ve <b>Hedefi ölç</b>’e bas: spektrum çizilir.",
+        "<b>RW Aurigae</b>’de <b>Işık eğrisi</b>’ne geç: bir yıldaki sönmeyi gör.",
+        "Haritada <b>Harita dalga boyu</b> kaydırıcısını oynat: gökyüzü 102 renkte."
+      ],
+      "keys": "Tuşlar: boşluk oynat/duraklat · ← → kare · 1–6 dedektör · D fark · G Gaia · F bayraklar"
+    },
+    "phone": "Telefon ve tablette de aynı araç: kutular alt alta dizilir.",
+    "next": {
+      "title": "Sırada ne var?",
+      "items": [
+        "Kalite bayraklarını kullanarak spektrumları kendiliğinden temizlemek",
+        "Bilinen asteroitleri karelerde etiketlemek",
+        "Geniş alanları daha hızlı okumak",
+        "Aracı herkese açık bir sunucuda yayınlamak"
+      ]
+    },
+    "tech": {
+      "title": "Kullanılan teknolojiler",
+      "items": ["Python 3.10+", "FastAPI", "astropy", "NumPy · SciPy", "HTML + JavaScript (derleme adımı yok)", "Aladin Lite"]
+    },
+    "credits": {
+      "title": "Veri ve teşekkür",
+      "text": [
+        "Bu proje, NASA’nın finanse ettiği, Jet Propulsion Laboratory ile California Institute of Technology’nin ortak projesi olan SPHEREx’in veri ürünlerini kullanır; veriler NASA/IPAC Kızılötesi Bilim Arşivi’nden (IRSA) alınmıştır. Konumlar ve öz hareketler ESA Gaia görevinden (DR3) ve SIMBAD veritabanından gelir. Gökyüzü haritası Aladin Lite’tır (CDS, Strazburg). Arayüz için WiseView ve IRSA’nın SPHEREx Data Explorer’ı örnek alınmıştır."
+      ]
+    },
+    "ai": {
+      "title": "Yapay zekâ kullanımı.",
+      "text": "Kod ve bu rapor, bir yapay zekâ kodlama yardımcısının (Claude) desteğiyle geliştirildi. Ölçümler Gaia DR3 ve 2MASS kataloglarıyla karşılaştırılarak doğrulandı."
+    },
+    "closing": "Gökyüzünün kızılötesi filmi: bir koordinat, bir tıklama.",
+    "closing_url": "kaynak kod ve kurulum"
+  }
+}

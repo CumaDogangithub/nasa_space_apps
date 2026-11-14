@@ -7,19 +7,20 @@
 (function () {
   'use strict';
 
+  const T = window.BlinkI18n.t, TN = window.BlinkI18n.tn;   // texts in the page's language
   const BANDS = [[0.75, 1.10], [1.10, 1.63], [1.63, 2.42], [2.42, 3.82], [3.82, 4.42], [4.42, 5.00]];
   const X_MIN = 0.7, X_MAX = 5.1;
   const EPOCH_COLORS = ['#5ad19a', '#ffb454', '#6fb7ff', '#ff7ad9', '#c9a0ff', '#f2e56b', '#ff8a6b', '#7de0e6'];
   const BAND_COLORS = ['#6fb7ff', '#5ad19a', '#c8e06b', '#ffcf5a', '#ff9a5a', '#ff6b7a'];
   // Wavelengths (microns) where molecules and hydrogen leave their mark.
-  const FEATURES = [[1.875, 'Paα'], [3.05, 'water ice'], [3.3, 'PAH'], [4.05, 'Brα'], [4.27, 'CO₂'], [4.67, 'CO']];
+  const FEATURES = [[1.875, 'Paα'], [3.05, T('plot.feature.ice')], [3.3, 'PAH'], [4.05, 'Brα'], [4.27, 'CO₂'], [4.67, 'CO']];
   const CHANNELS = 17;                    // spectral channels per detector
 
   let canvas = null, legendEl = null;
   let data = null;
   let view = 'spectrum';
   let logScale = false;
-  let unitLabel = 'Flux density (mJy)';
+  let unitLabel = T('spec.units.flux');
   const hiddenEpochs = new Set();
   const hiddenBands = new Set();
   let hits = [];                          // what is drawn where, for the pointer read-out
@@ -116,9 +117,9 @@
   }
 
   function frame(ctx, box, dpr, yScale, yLabel) {
-    ctx.strokeStyle = '#222b3d';
+    ctx.strokeStyle = '#1a233a';
     ctx.lineWidth = dpr;
-    ctx.fillStyle = '#8d97ab';
+    ctx.fillStyle = '#93a1bd';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     yScale.ticks.forEach((v) => {
@@ -127,7 +128,7 @@
       ctx.beginPath(); ctx.moveTo(box.l, y); ctx.lineTo(box.l + box.w, y); ctx.stroke();
       ctx.fillText(fmtFlux(v), box.l - 7 * dpr, y);
     });
-    ctx.strokeStyle = '#3a455c';
+    ctx.strokeStyle = '#2c3a5c';
     ctx.strokeRect(box.l + 0.5, box.t + 0.5, box.w, box.h);
     ctx.save();
     ctx.translate(14 * dpr, box.t + box.h / 2);
@@ -148,7 +149,7 @@
         ctx.fillStyle = 'rgba(255,255,255,0.035)';
         ctx.fillRect(xOf(b[0]), box.t, xOf(b[1]) - xOf(b[0]), box.h);
       }
-      ctx.fillStyle = hiddenBands.has(i + 1) ? '#465066' : '#8d97ab';
+      ctx.fillStyle = hiddenBands.has(i + 1) ? '#4d5a78' : '#93a1bd';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText('D' + (i + 1), 0.5 * (xOf(b[0]) + xOf(b[1])), box.t - 5 * dpr);
@@ -156,25 +157,25 @@
     frame(ctx, box, dpr, yScale, unitLabel);
 
     // wavelength axis
-    ctx.fillStyle = '#8d97ab';
+    ctx.fillStyle = '#93a1bd';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let w = 1; w <= 5; w += 0.5) {
       const x = Math.round(xOf(w)) + 0.5;
-      ctx.strokeStyle = '#3a455c';
+      ctx.strokeStyle = '#2c3a5c';
       ctx.beginPath(); ctx.moveTo(x, box.t + box.h); ctx.lineTo(x, box.t + box.h + 4 * dpr); ctx.stroke();
       ctx.fillText(w.toFixed(1), x, box.t + box.h + 7 * dpr);
     }
-    ctx.fillText('Wavelength (µm)', box.l + box.w / 2, box.t + box.h + 22 * dpr);
+    ctx.fillText(T('plot.wavelength'), box.l + box.w / 2, box.t + box.h + 22 * dpr);
 
     // molecular and hydrogen features
     ctx.setLineDash([3 * dpr, 4 * dpr]);
-    ctx.strokeStyle = 'rgba(141,151,171,0.45)';
+    ctx.strokeStyle = 'rgba(147,161,189,0.45)';
     ctx.textBaseline = 'top';
     FEATURES.forEach((f, i) => {
       const x = Math.round(xOf(f[0])) + 0.5;
       ctx.beginPath(); ctx.moveTo(x, box.t); ctx.lineTo(x, box.t + box.h); ctx.stroke();
-      ctx.fillStyle = 'rgba(141,151,171,0.9)';
+      ctx.fillStyle = 'rgba(147,161,189,0.9)';
       ctx.textAlign = 'left';
       ctx.fillText(f[1], x + 3 * dpr, box.t + (4 + 13 * (i % 2)) * dpr);
     });
@@ -186,7 +187,7 @@
     ctx.clip();
 
     // rejected exposures: hollow grey rings, kept visible but out of the lines and the scale
-    ctx.strokeStyle = 'rgba(141,151,171,0.7)';
+    ctx.strokeStyle = 'rgba(147,161,189,0.7)';
     ctx.lineWidth = dpr;
     validPoints(true).forEach((p) => {
       if (!p[8]) return;
@@ -299,25 +300,25 @@
     t0 -= padT; t1 += padT;
     const xOf = (t) => box.l + (t - t0) / (t1 - t0) * box.w;
     const yScale = fluxScale(all.map((n) => n.flux), box.t, box.h);
-    frame(ctx, box, dpr, yScale, 'Brightness / own average');
+    frame(ctx, box, dpr, yScale, T('plot.relative'));
     const unity = Math.round(yScale.map(1)) + 0.5;        // 1 = the star's average
     if (unity > box.t && unity < box.t + box.h) {
       ctx.setLineDash([5 * dpr, 4 * dpr]);
-      ctx.strokeStyle = 'rgba(231,234,242,0.45)';
+      ctx.strokeStyle = 'rgba(241,244,250,0.45)';
       ctx.beginPath(); ctx.moveTo(box.l, unity); ctx.lineTo(box.l + box.w, unity); ctx.stroke();
       ctx.setLineDash([]);
     }
 
-    ctx.fillStyle = '#8d97ab';
+    ctx.fillStyle = '#93a1bd';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let k = 0; k <= 5; k++) {
       const t = t0 + padT + k * (t1 - t0 - 2 * padT) / 5, x = Math.round(xOf(t)) + 0.5;
-      ctx.strokeStyle = '#3a455c';
+      ctx.strokeStyle = '#2c3a5c';
       ctx.beginPath(); ctx.moveTo(x, box.t + box.h); ctx.lineTo(x, box.t + box.h + 4 * dpr); ctx.stroke();
       ctx.fillText(isoDate(t), x, box.t + box.h + 7 * dpr);
     }
-    ctx.fillText('Date of observation', box.l + box.w / 2, box.t + box.h + 22 * dpr);
+    ctx.fillText(T('plot.date'), box.l + box.w / 2, box.t + box.h + 22 * dpr);
 
     series.forEach((s) => {
       const color = BAND_COLORS[s.band - 1];
@@ -339,8 +340,10 @@
         ctx.beginPath(); ctx.arc(x, y, 4 * dpr, 0, 2 * Math.PI); ctx.fill();
         hits.push({
           x: x, y: y, color: color,
-          text: isoDate(n.mjd) + '  ·  D' + s.band + ' (' + BANDS[s.band - 1][0].toFixed(2) + '–' +
-            BANDS[s.band - 1][1].toFixed(2) + ' µm)  ·  ' + n.flux.toFixed(2) + ' × its average, from ' + n.n + ' exposures'
+          text: T('plot.hit.curve', {
+            date: isoDate(n.mjd), band: s.band, v: n.flux.toFixed(2), exposures: TN('unit.exposures', n.n),
+            range: BANDS[s.band - 1][0].toFixed(2) + '–' + BANDS[s.band - 1][1].toFixed(2) + ' µm'
+          })
         });
       });
     });
@@ -364,13 +367,12 @@
       else { drawSpectrum(ctx, box, dpr); drawn = true; }
     }
     if (!drawn) {
-      ctx.strokeStyle = '#222b3d';
+      ctx.strokeStyle = '#1a233a';
       ctx.strokeRect(box.l + 0.5, box.t + 0.5, box.w, box.h);
-      ctx.fillStyle = '#8d97ab';
+      ctx.fillStyle = '#93a1bd';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(data ? 'Nothing to plot: every exposure is saturated, hidden or missing.'
-        : 'Click a star in the blink image to see its spectrum here.', box.l + box.w / 2, box.t + box.h / 2);
+      ctx.fillText(data ? T('plot.nothing') : T('plot.empty'), box.l + box.w / 2, box.t + box.h / 2);
       return;
     }
 
@@ -383,12 +385,12 @@
       let x = hover.x + 10 * dpr, y = hover.y - height - 8 * dpr;
       if (x + width > W - 4 * dpr) x = hover.x - width - 10 * dpr;
       if (y < 2 * dpr) y = hover.y + 10 * dpr;
-      ctx.fillStyle = 'rgba(14,19,32,0.95)';
+      ctx.fillStyle = 'rgba(9,14,26,0.97)';
       ctx.fillRect(x, y, width, height);
       ctx.strokeStyle = hover.color;
       ctx.lineWidth = dpr;
       ctx.strokeRect(x + 0.5, y + 0.5, width, height);
-      ctx.fillStyle = '#e7eaf2';
+      ctx.fillStyle = '#f1f4fa';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(hover.text, x + 7 * dpr, y + height / 2);
@@ -410,15 +412,15 @@
     };
     data.epochs.forEach((ep) => {
       const n = data.points.filter((p) => p[6] === ep.index && p[2] !== null).length;
-      chip(ep.date + ' <small>' + n + '</small>', view === 'curve' ? '#8d97ab' : epochColor(ep.index),
+      chip(ep.date + ' <small>' + n + '</small>', view === 'curve' ? '#93a1bd' : epochColor(ep.index),
         hiddenEpochs.has(ep.index),
         () => { if (hiddenEpochs.has(ep.index)) hiddenEpochs.delete(ep.index); else hiddenEpochs.add(ep.index); refresh(); },
-        'Show or hide this epoch (' + n + ' exposures)');
+        T('plot.chip.epoch', { exposures: TN('unit.exposures', n) }));
     });
     BANDS.forEach((b, i) => {
-      chip('D' + (i + 1), view === 'curve' ? BAND_COLORS[i] : '#8d97ab', hiddenBands.has(i + 1),
+      chip('D' + (i + 1), view === 'curve' ? BAND_COLORS[i] : '#93a1bd', hiddenBands.has(i + 1),
         () => { if (hiddenBands.has(i + 1)) hiddenBands.delete(i + 1); else hiddenBands.add(i + 1); refresh(); },
-        'Show or hide detector D' + (i + 1) + ' (' + b[0].toFixed(2) + '–' + b[1].toFixed(2) + ' µm)');
+        T('plot.chip.band', { band: i + 1, range: b[0].toFixed(2) + '–' + b[1].toFixed(2) + ' µm' }));
     });
   }
 

@@ -38,6 +38,10 @@ SIMBAD_TAP = [
 ]
 GAIA_BIBCODES = ("2018yCat.1345", "2020yCat.1350")   # coordinates given at epoch J2000
 
+# Sent when the archive's image search is down and nothing stored covers the position.
+# The page turns this word into a sentence in its own language.
+ARCHIVE_DOWN = "archive_unavailable"
+
 
 def _track(job: str):
     if not job:
@@ -97,6 +101,7 @@ def health() -> dict:
         "collections": config.COLLECTIONS,
         "bands": {str(k): v for k, v in config.BANDS.items()},
         "fov_range": [pipeline.MIN_FOV, pipeline.MAX_FOV],
+        "per_epoch": pipeline.DEFAULT_PER_EPOCH,
     }
 
 
@@ -105,26 +110,35 @@ def search(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90,
     """Which SPHEREx images cover this position: epochs and counts per detector."""
     try:
         exposures = archive.search(ra, dec)
+    except archive.ArchiveUnavailable:
+        raise HTTPException(503, ARCHIVE_DOWN)
     except Exception as exc:
         raise HTTPException(502, f"SPHEREx image search failed: {exc}")
     out = pipeline.summarize(exposures)
-    out.update(ra=ra, dec=dec, bands={str(k): v for k, v in config.BANDS.items()})
+    out.update(ra=ra, dec=dec, bands={str(k): v for k, v in config.BANDS.items()},
+               archive=archive.search_info(ra, dec))
     return out
 
 
 @app.get("/api/frames")
 def frames(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90, le=90),
            fov: float = Query(240.0, ge=pipeline.MIN_FOV, le=pipeline.MAX_FOV),
-           bands: str = "2", job: str = "") -> Response:
-    """Aligned epoch frames around (ra, dec) for one detector array or an average of several."""
+           bands: str = "2", job: str = "", limit: int = pipeline.DEFAULT_PER_EPOCH) -> Response:
+    """Aligned epoch frames around (ra, dec) for one detector array or an average of several.
+
+    ``limit`` is the most exposures of one detector read for each visit (0: all of them).
+    """
     band_list = _parse_bands(bands)
     try:
-        result = pipeline.build(ra, dec, fov, band_list, _track(job))
+        result = pipeline.build(ra, dec, fov, band_list, _track(job), pipeline.clamp_per_epoch(limit))
+    except archive.ArchiveUnavailable:
+        raise HTTPException(503, ARCHIVE_DOWN)
     except Exception as exc:
         raise HTTPException(502, f"Could not build frames: {exc}")
     finally:
         with _progress_lock:
             _progress.pop(job, None)
+    result = {**result, "archive": archive.search_info(ra, dec)}
     return Response(encode_frames(result), media_type="application/octet-stream")
 
 
@@ -138,8 +152,11 @@ def progress(job: str) -> dict:
 @app.get("/api/flags")
 def quality_flags(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-90, le=90),
                   fov: float = Query(240.0, ge=pipeline.MIN_FOV, le=pipeline.MAX_FOV),
-                  bands: str = "2", job: str = "") -> Response:
-    """SPHEREx quality flags behind each blink frame, and the list of exposures."""
+                  bands: str = "2", job: str = "", limit: int = pipeline.DEFAULT_PER_EPOCH) -> Response:
+    """SPHEREx quality flags behind each blink frame, and the list of exposures.
+
+    ``limit`` must be the value the frames were asked with, so that both use the same exposures.
+    """
     band_list = _parse_bands(bands)
     report = _track(job)
 
@@ -149,7 +166,9 @@ def quality_flags(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., 
             report(label, int(1000 * part), 1000)
 
     try:
-        result = flags.build_flags(ra, dec, fov, band_list, progress)
+        result = flags.build_flags(ra, dec, fov, band_list, progress, pipeline.clamp_per_epoch(limit))
+    except archive.ArchiveUnavailable:
+        raise HTTPException(503, ARCHIVE_DOWN)
     except Exception as exc:
         raise HTTPException(502, f"Could not read the quality flags: {exc}")
     finally:
@@ -182,7 +201,10 @@ def spectrum(ra: float = Query(..., ge=0, lt=360), dec: float = Query(..., ge=-9
             report(label, int(1000 * part), 1000)
 
     try:
-        return spectra.build_spectrum(ra, dec, moving, progress, wide=bool(wide))
+        result = spectra.build_spectrum(ra, dec, moving, progress, wide=bool(wide))
+        return {**result, "archive": archive.search_info(ra, dec)}
+    except archive.ArchiveUnavailable:
+        raise HTTPException(503, ARCHIVE_DOWN)
     except Exception as exc:
         raise HTTPException(502, f"Could not measure the spectrum: {exc}")
     finally:

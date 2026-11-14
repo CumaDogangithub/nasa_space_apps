@@ -3,6 +3,8 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
+  const I18N = window.BlinkI18n;
+  const T = I18N.t, TN = I18N.tn;        // texts in the page's language, see i18n.js
   const query = new URLSearchParams(location.search);
   // Opened from disk (file://) the page talks to a local server; otherwise to its own origin.
   const API = query.get('api') || (location.protocol === 'file:' ? 'http://localhost:8000' : '');
@@ -12,17 +14,14 @@
   const SURVEY_YEAR = 2026.0;            // moving targets are centred where they are around this date
   const D2R = Math.PI / 180;
   const ASEC = 3600 * 180 / Math.PI;     // arcseconds per radian
-  const DEFAULTS = { fov: 240, bands: '2', mode: 'blink', ref: 'auto', speed: 600, white: 60, black: 3, smooth: 0 };
-  const MODE_HINTS = {
-    blink: 'Frames are lined up on the sky. Anything that shifts or flickers between epochs is worth a closer look.',
-    diff: 'Stars that do not change cancel out. A moving object leaves a dark spot where it was and a bright spot where it went.',
-    sum: 'All epochs averaged together: deeper, but anything that moves is smeared.'
-  };
+  // limit: the most exposures of one detector read for each visit (0 = all); the server's default is the same
+  const DEFAULTS = { fov: 240, bands: '2', limit: 40, mode: 'blink', ref: 'auto', speed: 600, white: 60, black: 3, smooth: 0 };
+  const MODES = ['blink', 'diff', 'sum'];
 
   const state = {
     target: '', name: '', ra: null, dec: null,
     track: null,                         // {ra, dec, epoch, pmra, pmdec} of a moving target
-    fov: DEFAULTS.fov, bands: DEFAULTS.bands, mode: DEFAULTS.mode, ref: DEFAULTS.ref,
+    fov: DEFAULTS.fov, bands: DEFAULTS.bands, limit: DEFAULTS.limit, mode: DEFAULTS.mode, ref: DEFAULTS.ref,
     speed: DEFAULTS.speed, white: DEFAULTS.white, black: DEFAULTS.black, smooth: DEFAULTS.smooth,
     invert: false, interp: true, marks: true,
     gaia: false, gaiaData: null,         // overlay of Gaia DR3 stars: on/off and the stars around the field
@@ -36,15 +35,9 @@
   const gaiaMemo = new Map();
   const FAST_MOVER = 150;                // proper motion in mas/yr above which a Gaia star is highlighted
   const ARROW_YEARS = 5;                 // length of a fast mover's arrow, in years of motion
-  const GAIA_HINT = 'Blue circles are stars the Gaia mission already knows, moved to the date of each frame. ' +
-    'Pink arrows show where fast-moving stars will be in ' + ARROW_YEARS + ' years. ' +
-    'Something that moves but has no circle is not in Gaia.';
   let gaiaToken = 0;
   const flagMemo = new Map();
   const flagCanvas = document.createElement('canvas');
-  const FLAGS_HINT = 'Pink marks pixels that SPHEREx itself flagged in at least a quarter of the exposures behind this frame: ' +
-    'cosmic-ray hits, saturation, leftover charge, ghosts of bright stars. Point at a pixel to see which flags. ' +
-    'Every exposure is listed in the table further down.';
   let flagToken = 0;
   let flagCanvasKey = '';
   let exposureKey = '';
@@ -90,7 +83,7 @@
     return arcsec >= 60 ? (arcsec / 60).toFixed(arcsec % 60 ? 1 : 0) + '′' : arcsec + '″';
   }
   function bandName(bands) {
-    return bands === ALL_BANDS ? 'All detectors' : bands.split(',').map((b) => 'D' + b).join('+');
+    return bands === ALL_BANDS ? T('band.all.name') : bands.split(',').map((b) => 'D' + b).join('+');
   }
   function bandRange(bands) {
     const list = bands.split(',').map(Number);
@@ -103,7 +96,7 @@
     const num = '[+-]?\\d+(?:\\.\\d*)?';
     const check = (ra, dec) => (ra >= 0 && ra < 360 && dec >= -90 && dec <= 90)
       ? { ra: ra, dec: dec }
-      : { error: 'Those coordinates are outside the sky: RA must be 0–360° (or 0–24h) and Dec −90° to +90°.' };
+      : { error: T('msg.coords') };
     const m = s.match(new RegExp('^(' + num + ')\\s*(?:deg|d|°)?\\s+(' + num + ')\\s*(?:deg|d|°)?$', 'i'));
     if (m) return check(parseFloat(m[1]), parseFloat(m[2]));
     const t = s.replace(/[hmsd°'"′″:]/gi, ' ').trim().split(/\s+/);
@@ -211,31 +204,30 @@
   // the server is down) the five example targets are shown from recorded answers
   // in web/demo/<id>.js, made by scripts/build_demo.py. ?demo=1 forces this mode.
 
-  const NO_SERVER = 'Start the server to explore any position: python -m uvicorn backend.app:app --port 8000';
+  const noServer = () => T('demo.start');
   let demo = query.get('demo') === '1';
   const bundles = {};
 
   function showDemoBanner(made) {
     const el = $('demo-banner');
     el.hidden = false;
-    el.textContent = 'Offline demo: the live server is not running, so the five example targets are shown from data recorded' +
-      (made ? ' on ' + made : ' earlier') + '. ' + NO_SERVER;
+    el.textContent = made
+      ? T('demo.banner', { date: made, start: noServer() })
+      : T('demo.banner.nodate', { start: noServer() });
   }
 
   /* The recorded data of the example target on screen (loaded on first use). */
   function demoBundle() {
     const id = state.target;
-    if (!id) {
-      return Promise.reject(new Error('Without the live server only the five example targets can be shown.\n' + NO_SERVER));
-    }
+    if (!id) return Promise.reject(new Error(T('demo.only', { start: noServer() })));
     if (!bundles[id]) {
       bundles[id] = new Promise((resolve, reject) => {
         const have = () => window.BLINK_DEMO && window.BLINK_DEMO[id];
         if (have()) { resolve(have()); return; }
         const tag = document.createElement('script');
         tag.src = 'demo/' + id + '.js';
-        tag.onload = () => (have() ? resolve(have()) : reject(new Error('The recorded data for this target is unreadable.')));
-        tag.onerror = () => reject(new Error('The recorded data for this target is missing (web/demo/' + id + '.js).'));
+        tag.onload = () => (have() ? resolve(have()) : reject(new Error(T('demo.unreadable'))));
+        tag.onerror = () => reject(new Error(T('demo.missing', { id: id })));
         document.head.appendChild(tag);
       });
       bundles[id].then((b) => showDemoBanner(b.made), () => { delete bundles[id]; });
@@ -254,27 +246,25 @@
     const what = path.split('?')[0].replace('/api/', '');
     const q = new URLSearchParams(path.split('?')[1] || '');
     if (what === 'progress') return { label: '', fraction: 0 };
-    if (what === 'resolve') throw new Error('Looking up names needs the live server.\n' + NO_SERVER);
+    if (what === 'resolve') throw new Error(T('demo.resolve', { start: noServer() }));
     const b = await demoBundle();
     if (what === 'search') return b.search;
     if (what === 'gaia') return b.gaia;
     if (what === 'spectrum') {
       if (q.get('track')) return b.spectrum;
-      throw new Error('The offline demo only holds the spectrum of the target itself. ' + NO_SERVER);
+      throw new Error(T('demo.spectrum', { start: noServer() }));
     }
     if (what === 'frames' || what === 'flags') {
       if (Math.abs(Number(q.get('fov')) - b.fov) > 0.5) {
-        throw new Error('The offline demo holds this target with a ' + fmtAngle(b.fov) + ' field only.\n' + NO_SERVER);
+        throw new Error(T('demo.fov', { fov: fmtAngle(b.fov), start: noServer() }));
       }
       const recorded = b[what][q.get('bands')];
       if (!recorded) {
-        throw new Error(what === 'flags'
-          ? 'The offline demo holds the quality flags of the ' + bandName(b.bands) + ' view only.'
-          : 'This view is not part of the offline demo.\n' + NO_SERVER);
+        throw new Error(what === 'flags' ? T('demo.flags', { band: bandName(b.bands) }) : T('demo.view', { start: noServer() }));
       }
       return base64ToBuffer(recorded);
     }
-    throw new Error('Not available in the offline demo.');
+    throw new Error(T('demo.na'));
   }
 
   async function getJSON(path) {
@@ -291,19 +281,41 @@
     return r.arrayBuffer();
   }
 
+  /* The server explains its errors in English; say the ones we know in the page's language. */
+  const SERVER_TEXT = [
+    [/^archive_unavailable$/, 'server.archive'],
+    [/^SPHEREx image search failed: ([\s\S]*)$/, 'server.search'],
+    [/^Could not build frames: ([\s\S]*)$/, 'server.frames'],
+    // the page itself says that these two failed, so only the reason is kept
+    [/^Could not read the quality flags: ([\s\S]*)$/, null],
+    [/^Could not measure the spectrum: ([\s\S]*)$/, null],
+    [/^The Gaia archive did not answer: ([\s\S]*)$/, 'server.gaia'],
+    [/^'([\s\S]*)' was not found in SIMBAD$/, 'server.notfound'],
+    [/^SIMBAD has no coordinates for '([\s\S]*)'$/, 'server.nocoords'],
+    [/^Name lookup failed: ([\s\S]*)$/, 'server.lookup']
+  ];
+
+  function serverText(detail) {
+    for (let i = 0; i < SERVER_TEXT.length; i++) {
+      const m = SERVER_TEXT[i][0].exec(detail);
+      if (m) return SERVER_TEXT[i][1] ? T(SERVER_TEXT[i][1], { x: m[1] }) : m[1];
+    }
+    return detail;
+  }
+
   async function errorText(r) {
     try {
       const body = await r.json();
-      return typeof body.detail === 'string' ? body.detail : 'The server rejected the request (' + r.status + ').';
+      return typeof body.detail === 'string' ? serverText(body.detail) : T('msg.rejected', { status: r.status });
     } catch (e) {
-      return 'The server answered with an error (' + r.status + ').';
+      return T('msg.error', { status: r.status });
     }
   }
 
   function decodeFrames(buf) {
     const view = new DataView(buf);
     const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-    if (magic !== 'SBT1') throw new Error('Unexpected answer from the server.');
+    if (magic !== 'SBT1') throw new Error(T('msg.unexpected'));
     const headLen = view.getUint32(4, true);
     const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, headLen)));
     const size = head.n * head.n;
@@ -313,25 +325,30 @@
     return head;
   }
 
-  async function fetchFrames(ra, dec, fov, bands, onProgress) {
+  async function fetchFrames(ra, dec, fov, bands, limit, onProgress) {
     const job = Math.random().toString(36).slice(2);
     const poll = setInterval(() => {
       getJSON('/api/progress?job=' + job).then(onProgress).catch(() => {});
     }, 400);
     try {
       return decodeFrames(await getBinary(
-        '/api/frames?ra=' + ra + '&dec=' + dec + '&fov=' + fov + '&bands=' + bands + '&job=' + job));
+        '/api/frames?ra=' + ra + '&dec=' + dec + '&fov=' + fov + '&bands=' + bands + '&limit=' + limit + '&job=' + job));
     } finally {
       clearInterval(poll);
     }
   }
 
+  /* The archive's image search is sometimes down. The server then works from the lists it stored
+     earlier; say so, because the newest images, or a few of them, may be missing. */
+  function noteArchive(info) {
+    const el = $('archive-note'), source = info && info.source;
+    el.hidden = source !== 'stale' && source !== 'incomplete';
+    if (!el.hidden) el.textContent = T('archive.' + source);
+  }
+
   function explain(err) {
     const text = String((err && err.message) || err);
-    if (/failed to fetch|networkerror|load failed/i.test(text)) {
-      return 'Cannot reach the Blink Tree server.\nStart it from the project folder with\npython -m uvicorn backend.app:app --port 8000';
-    }
-    return text;
+    return /failed to fetch|networkerror|load failed/i.test(text) ? T('msg.noserver') : text;
   }
 
   // ---------------------------------------------------------------- loading
@@ -350,9 +367,7 @@
 
   function progressText(label) {
     const parts = label.split(' ');
-    return parts[1] === 'headers'
-      ? 'Finding the target on each ' + parts[0] + ' image…'
-      : 'Reading ' + parts[0] + ' pixels from the NASA archive…';
+    return T(parts[1] === 'headers' ? 'prog.headers' : 'prog.pixels', { band: parts[0] });
   }
 
   function loadSummary() {
@@ -360,11 +375,13 @@
     if (key === summaryKey) return;
     summaryKey = key;
     state.summary = null;
+    noteArchive(null);                 // a note about the previous field says nothing about this one
     renderTree();
     if (sky) sky.setFootprints([]);
     getJSON('/api/search?ra=' + state.ra + '&dec=' + state.dec).then((s) => {
       if (key !== summaryKey) return;
       state.summary = s;
+      noteArchive(s.archive);
       if (sky) sky.setFootprints(s.footprints || []);
       renderTree();
       renderFacts();
@@ -374,7 +391,7 @@
   async function load() {
     if (state.ra === null) return;
     const token = ++loadToken;
-    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands].join('|');
+    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands, state.limit].join('|');
     if (spec && specField !== state.ra.toFixed(5) + '|' + state.dec.toFixed(5)) clearSpectrum();   // a new field
     syncUrl();
     syncControls();
@@ -394,9 +411,9 @@
         rebuild();
       }
       canvas.classList.add('stale');
-      showProgress(0, 'Asking the SPHEREx archive which images cover this spot…');
+      showProgress(0, T('prog.asking'));
       try {
-        data = await fetchFrames(state.ra, state.dec, state.fov, state.bands, (p) => {
+        data = await fetchFrames(state.ra, state.dec, state.fov, state.bands, state.limit, (p) => {
           if (token === loadToken && p.label) showProgress(p.fraction, progressText(p.label));
         });
         memo.set(key, data);
@@ -427,12 +444,11 @@
   /* The "Subtract" menu: fixed choices plus every epoch of the loaded data. */
   function renderRefOptions() {
     const d = state.data;
-    const fixed = [['auto', 'the deepest earlier epoch'], ['first', 'the first epoch'],
-      ['prev', 'the previous epoch'], ['mean', 'the average of all epochs']];
-    let html = fixed.map((o) => '<option value="' + o[0] + '">' + o[1] + '</option>').join('');
+    let html = ['auto', 'first', 'prev', 'mean'].map((v) =>
+      '<option value="' + v + '">' + esc(T('ref.' + v)) + '</option>').join('');
     if (d && d.n_frames) {
-      html += d.epochs.map((e) =>
-        '<option value="e' + e.epoch + '">' + e.date + ' (' + e.n_exposures + ' exposures)</option>').join('');
+      html += d.epochs.map((e) => '<option value="e' + e.epoch + '">' +
+        esc(T('ref.epoch', { date: e.date, exposures: TN('unit.exposures', e.n_exposures) })) + '</option>').join('');
     }
     $('ref').innerHTML = html;
     $('ref').value = state.ref;
@@ -473,7 +489,7 @@
         state.shown.push({
           px: average(base, weights), kind: 'image', sigma: sigma / Math.sqrt(d.n_frames),
           meta: {
-            epoch: -1, date: 'All epochs',
+            epoch: -1, date: T('frame.all'),
             mjd: d.epochs.reduce((s, e) => s + e.mjd, 0) / d.n_frames,
             date_start: d.epochs[0].date_start, date_end: d.epochs[d.n_frames - 1].date_end,
             n_exposures: d.epochs.reduce((s, e) => s + e.n_exposures, 0)
@@ -492,7 +508,7 @@
           }
           state.shown.push({
             px: subtract(px, mean || base[j]), meta: d.epochs[i], kind: 'diff', sigma: sigma,
-            minus: mean ? 'average' : d.epochs[j].date
+            minus: mean ? T('frame.average') : d.epochs[j].date
           });
         });
       }
@@ -505,9 +521,8 @@
     }
     if (d && !d.n_frames) {
       setMessage(d.n_found
-        ? 'SPHEREx has only ' + d.n_used + ' usable ' + bandName(state.bands) + ' exposure' + (d.n_used === 1 ? '' : 's') +
-          ' here, too few to build an epoch.\nTry another detector.'
-        : 'SPHEREx has no ' + bandName(state.bands) + ' images of this position yet.\nTry another detector.');
+        ? T('msg.toofew', { exposures: TN('unit.exposures', d.n_used), band: bandName(state.bands) })
+        : T('msg.noimages', { band: bandName(state.bands) }));
     }
     renderTimeline();
     renderFacts();
@@ -548,9 +563,6 @@
   // ---------------------------------------------------------------- spectrum
 
   const plot = window.BlinkSpectrum || null;
-  const SPEC_HINT = 'Click a star in the blink image to measure it in every SPHEREx exposure. ' +
-    'Each exposure sees the star at a different wavelength, so together they give its spectrum from 0.75 to 5 µm, ' +
-    'and how its brightness changed from one visit to the next.';
   const APERTURE_ARCSEC = 12.3;          // radius of the measuring circle used by the server
   let spec = null;                       // {ra, dec, moving, data}: the source being measured
   let specField = '';                    // the field it belongs to
@@ -572,7 +584,7 @@
     $('spec-kind').hidden = true;
     $('spec-progress').hidden = true;
     if (plot) plot.setData(null);
-    setSpecStatus(SPEC_HINT);
+    setSpecStatus(T('spec.hint'));
   }
 
   /* What the plot shows: the star itself or, for a saturated star, the ring of light around it. */
@@ -589,35 +601,28 @@
 
   function specSummary() {
     const res = spec.data, ring = specKind === 'ring' && !!res.ring;
+    const name = state.name || T('spec.target.name');
+    const position = fmtRa(spec.ra) + ' ' + fmtDec(spec.dec);
     const fast = spec.moving && state.track && Math.hypot(state.track.pmra, state.track.pmdec) >= 100;
-    const where = spec.moving
-      ? (state.name || 'The target') + (fast ? ', followed as it moves' : '')
-      : fmtRa(spec.ra) + ' ' + fmtDec(spec.dec);
     let text;
     if (ring) {
-      text = (spec.moving ? (state.name || 'The target') : where) + ' is too bright for SPHEREx: its core is saturated in ' + res.n_saturated + ' of ' + res.points.length +
-        ' exposures. Shown instead is the light in a ring around it, between the two dashed circles (' +
-        res.ring_arcsec[0] + '″ to ' + res.ring_arcsec[1] + '″ from the centre), measured in ' +
-        res.ring.filter((r) => r).length + ' exposures. It rises and falls with the star but is not its total brightness.';
+      text = T('spec.summary.ring', {
+        name: spec.moving ? name : position,
+        a: res.n_saturated, b: res.points.length, r0: res.ring_arcsec[0], r1: res.ring_arcsec[1],
+        exposures: TN('unit.exposures', res.ring.filter((r) => r).length)
+      });
     } else {
-      text = where + ': measured in ' + res.n_points + ' exposures over ' + res.epochs.length +
-        (res.epochs.length === 1 ? ' epoch' : ' epochs') + ', inside the dashed circle (' + res.aperture_arcsec + '″ radius).';
-      if (res.n_saturated) {
-        text += ' ' + res.n_saturated + (res.n_saturated === 1 ? ' exposure is' : ' exposures are') +
-          ' left out because the star is saturated there.';
-      }
+      text = T('spec.summary.core', {
+        where: !spec.moving ? position : fast ? T('spec.where.moving', { name: name }) : name,
+        exposures: TN('unit.exposures', res.n_points), epochs: TN('unit.epochs', res.epochs.length),
+        r: res.aperture_arcsec
+      });
+      if (res.n_saturated) text += T('spec.summary.saturated', { exposures: TN('unit.exposures', res.n_saturated) });
     }
-    if (res.thinned) text += ' Only ' + res.n_read + ' of the ' + res.n_found + ' exposures were read.';
-    if (specRejected) {
-      text += ' ' + specRejected + (specRejected === 1 ? ' exposure jumps' : ' exposures jump') +
-        ' away from the rest (a cosmic ray or bad pixel) and ' + (specRejected === 1 ? 'is' : 'are') + ' set aside.';
-    }
-    if (specView === 'curve') {
-      return text + ' In the light curve every exposure is compared with this star’s own average brightness at the same ' +
-        'wavelength, so 1 means average and 0.5 means half as bright.';
-    }
-    return text + ' Dots are single exposures; lines join the medians of neighbouring exposures.' +
-      (ring ? '' : ' Anything else inside the circle adds to the brightness.');
+    if (res.thinned) text += T('spec.summary.thinned', { a: res.n_read, b: res.n_found });
+    if (specRejected) text += T('spec.summary.rejected', { exposures: TN('unit.exposures', specRejected) });
+    if (res.archive && res.archive.source === 'incomplete') text += T('spec.summary.offline');
+    return text;
   }
 
   /* Put the measurement on the plot in the chosen form and describe it. */
@@ -625,7 +630,7 @@
     const res = spec.data;
     $('spec-kind').hidden = !res.ring;
     document.querySelectorAll('#spec-kind button').forEach((b) => b.classList.toggle('active', b.dataset.kind === specKind));
-    plot.setUnits(specKind === 'ring' && res.ring ? 'Light in the ring (mJy)' : 'Flux density (mJy)');
+    plot.setUnits(specKind === 'ring' && res.ring ? T('spec.units.ring') : T('spec.units.flux'));
     specRejected = plot.setData(specPlotData());
     setSpecStatus(specSummary());
     draw();                               // the circles on the blink image follow the choice
@@ -662,21 +667,22 @@
       const t = state.track;
       url += '&track=' + [t.ra, t.dec, t.epoch, t.pmra, t.pmdec].join(',');
     }
-    setSpecStatus('Measuring this spot in every SPHEREx exposure…');
+    setSpecStatus(T('spec.measuring'));
     $('spec-progress').hidden = false;
     $('spec-bar').style.width = '0%';
-    $('spec-progress-label').textContent = 'Asking the archive which exposures cover this spot…';
+    $('spec-progress-label').textContent = T('spec.asking');
     const poll = setInterval(() => {
       getJSON('/api/progress?job=' + job).then((p) => {
         if (token !== specToken || !p.label) return;
         $('spec-bar').style.width = Math.round(100 * p.fraction) + '%';
         $('spec-progress-label').textContent = p.label === 'headers'
-          ? 'Finding the spot on each exposure…' : 'Measuring the brightness in each exposure…';
+          ? T('spec.finding') : T('spec.reading');
       }).catch(() => {});
     }, 400);
     getJSON(url).then((res) => {
       if (token !== specToken) return;
       spec.data = res;
+      noteArchive(res.archive);
       if (res.ring && res.mostly_saturated) {          // a saturated star: its light curve is what can be trusted
         specKind = 'ring';
         specView = 'curve';
@@ -685,7 +691,7 @@
       }
       showSpectrum();
     }).catch((err) => {
-      if (token === specToken) setSpecStatus('The spectrum could not be measured. ' + explain(err));
+      if (token === specToken) setSpecStatus(T('spec.failed') + explain(err));
     }).finally(() => {
       clearInterval(poll);
       if (token === specToken) $('spec-progress').hidden = true;
@@ -744,7 +750,7 @@
   function decodeFlags(buf) {
     const view = new DataView(buf);
     const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-    if (magic !== 'SBF1') throw new Error('Unexpected answer from the server.');
+    if (magic !== 'SBF1') throw new Error(T('msg.unexpected'));
     const headLen = view.getUint32(4, true);
     const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, headLen)));
     const count = head.n_frames * head.n * head.n;
@@ -770,33 +776,34 @@
       draw();
       return;
     }
-    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands].join('|');
+    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands, state.limit].join('|');
     const done = (data) => {
       data.key = key;
       state.flagData = data;
-      setFlagsNote(FLAGS_HINT);
+      setFlagsNote(T('flags.note'));
       draw();
     };
     if (flagMemo.has(key)) { done(flagMemo.get(key)); return; }
     state.flagData = null;
-    setFlagsNote('Reading SPHEREx\u2019s quality flags\u2026');
+    setFlagsNote(T('flags.loading'));
     draw();
     const job = Math.random().toString(36).slice(2);
     const poll = setInterval(() => {
       getJSON('/api/progress?job=' + job).then((p) => {
         if (token === flagToken && p.label) {
-          setFlagsNote('Reading SPHEREx\u2019s quality flags\u2026 ' + Math.round(100 * p.fraction) + '%');
+          setFlagsNote(T('flags.loading') + ' ' + Math.round(100 * p.fraction) + '%');
         }
       }).catch(() => {});
     }, 400);
-    getBinary('/api/flags?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov + '&bands=' + state.bands + '&job=' + job)
+    getBinary('/api/flags?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov + '&bands=' + state.bands +
+      '&limit=' + state.limit + '&job=' + job)
       .then(decodeFlags)
       .then((data) => {
         flagMemo.set(key, data);
         if (token === flagToken) done(data);
       })
       .catch((err) => {
-        if (token === flagToken) setFlagsNote('The quality flags could not be read. ' + explain(err));
+        if (token === flagToken) setFlagsNote(T('flags.failed') + explain(err));
       })
       .finally(() => clearInterval(poll));
   }
@@ -813,7 +820,10 @@
     const fd = state.flagData, trouble = [], info = [];
     Object.keys(fd.names).forEach((b) => {
       if (!(bits >> Number(b) & 1)) return;
-      const entry = { name: fd.names[b][0], about: fd.names[b][1], info: fd.info_bits.indexOf(Number(b)) >= 0 };
+      const name = fd.names[b][0], key = 'flag.' + name, plain = T(key);
+      // plain words where we have them, always with the mission's own wording
+      const about = plain === key ? fd.names[b][1] : T('flag.official', { plain: plain, official: fd.names[b][1] });
+      const entry = { name: name, about: about, info: fd.info_bits.indexOf(Number(b)) >= 0 };
       (entry.info ? info : trouble).push(entry);
     });
     return withInfo ? trouble.concat(info) : trouble;
@@ -849,7 +859,7 @@
     const fd = state.flagData, at = idx * fd.n * fd.n + y * fd.n + x;
     const names = flagList(fd.common[at], false).map((e) => e.name);
     if (!names.length) return '';
-    return '  \u00b7  flags: ' + names.join(', ') + ' (' + Math.round(100 * fd.fraction[at] / 255) + '% of exposures flagged)';
+    return '  ·  ' + T('flags.hover', { names: names.join(', '), p: Math.round(100 * fd.fraction[at] / 255) });
   }
 
   /* Table of the exposures stacked into the frame on screen. */
@@ -866,18 +876,17 @@
     const rows = fd.exposures.filter((e) => f.meta.epoch === -1 || e.epoch === f.meta.epoch);
     const flagged = rows.filter((e) => flagList(e.flags, false).length).length;
     wrap.hidden = false;
-    $('exposures-note').textContent = rows.length + (rows.length === 1 ? ' exposure makes' : ' exposures make') +
-      ' up this frame; ' + (flagged ? flagged + ' of them carry' : 'none of them carries') +
-      ' a trouble flag at the centre of the field. Each exposure saw the centre at the wavelength shown.';
+    $('exposures-note').textContent = T('exp.note', { exposures: TN('unit.exposures', rows.length), k: flagged });
     const body = rows.map((e) => {
       const chips = flagList(e.flags, true).map((c) =>
         '<span class="flag' + (c.info ? ' info' : '') + '" title="' + esc(c.about) + '">' + esc(c.name) + '</span>').join('');
-      return '<tr><td>' + esc(e.time) + '</td><td>D' + e.band + '</td><td>' + e.wavelength.toFixed(3) + ' \u00b5m</td><td>' +
-        (chips || '<span class="flag info">none</span>') + '</td><td><a href="' + esc(e.url) +
-        '" target="_blank" rel="noopener" title="Open the full SPHEREx image at IRSA (about 65 MB)">' + esc(e.uid) + '</a></td></tr>';
+      return '<tr><td>' + esc(e.time) + '</td><td>D' + e.band + '</td><td>' + e.wavelength.toFixed(3) + ' µm</td><td>' +
+        (chips || '<span class="flag info">' + esc(T('exp.none')) + '</span>') + '</td><td><a href="' + esc(e.url) +
+        '" target="_blank" rel="noopener" title="' + esc(T('exp.open')) + '">' + esc(e.uid) + '</a></td></tr>';
     }).join('');
-    $('exposures').innerHTML = '<table><thead><tr><th>Taken (UTC)</th><th>Detector</th><th>Wavelength at the centre</th>' +
-      '<th>Flags within 12\u2033 of the centre</th><th>SPHEREx image</th></tr></thead><tbody>' + body + '</tbody></table>';
+    $('exposures').innerHTML = '<table><thead><tr><th>' + esc(T('exp.col.time')) + '</th><th>' + esc(T('exp.col.detector')) +
+      '</th><th>' + esc(T('exp.col.wave')) + '</th><th>' + esc(T('exp.col.flags')) + '</th><th>' + esc(T('exp.col.file')) +
+      '</th></tr></thead><tbody>' + body + '</tbody></table>';
   }
 
   // ---------------------------------------------------------------- Gaia overlay
@@ -901,19 +910,19 @@
     const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov].join('|');
     const done = (g) => {
       state.gaiaData = g;
-      setGaiaNote(GAIA_HINT + (g.truncated ? ' Only the ' + g.sources.length + ' brightest stars are marked.' : ''));
+      setGaiaNote(T('gaia.note', { years: ARROW_YEARS }) + (g.truncated ? T('gaia.truncated', { n: g.sources.length }) : ''));
       renderFacts();
       draw();
     };
     if (gaiaMemo.has(key)) { done(gaiaMemo.get(key)); return; }
     state.gaiaData = null;
-    setGaiaNote('Looking up Gaia stars…');
+    setGaiaNote(T('gaia.loading'));
     draw();
     getJSON('/api/gaia?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov).then((g) => {
       gaiaMemo.set(key, g);
       if (token === gaiaToken) done(g);
     }).catch((err) => {
-      if (token === gaiaToken) setGaiaNote('Gaia stars could not be loaded. ' + explain(err));
+      if (token === gaiaToken) setGaiaNote(T('gaia.failed') + explain(err));
     });
   }
 
@@ -971,7 +980,7 @@
       ctx.fillStyle = '#ff9be3';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
-      outlined(ctx, (q.pm / 1000).toFixed(2) + '″/yr', labelX, labelY);
+      outlined(ctx, T('gaia.rate', { v: (q.pm / 1000).toFixed(2) }), labelX, labelY);
     });
   }
 
@@ -986,12 +995,16 @@
     });
     if (!best) return '';
     const mag = best.src[6], parallax = best.src[5];
-    let text = '  ·  Gaia star';
+    let text = '  ·  ' + T('gaia.hover');
     if (mag !== null) text += ', G = ' + mag.toFixed(1);
     if (best.pm >= 1) {
-      text += ', moving ' + (best.pm >= 1000 ? (best.pm / 1000).toFixed(2) + '″' : best.pm.toFixed(0) + ' mas') + ' per year';
+      text += ', ' + T('gaia.hover.moving', {
+        v: best.pm >= 1000 ? (best.pm / 1000).toFixed(2) + '″' : best.pm.toFixed(0) + ' mas'
+      });
     }
-    if (parallax && parallax > 0.5) text += ', ' + Math.round(3261.6 / parallax).toLocaleString('en-US') + ' light-years away';
+    if (parallax && parallax > 0.5) {
+      text += ', ' + T('gaia.hover.distance', { d: Math.round(3261.6 / parallax).toLocaleString(I18N.locale) });
+    }
     return text;
   }
 
@@ -1044,14 +1057,14 @@
     ctx.font = '600 ' + Math.round(13 * dpr) + 'px system-ui, sans-serif';
     ctx.lineWidth = 3 * dpr;
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillStyle = '#ffd98a';
+    ctx.fillStyle = '#9cc4ff';
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
     const title = f.kind === 'diff' ? f.meta.date + '  −  ' + f.minus : f.meta.date;
     outlined(ctx, title, 10 * dpr, 9 * dpr);
     ctx.font = Math.round(12 * dpr) + 'px system-ui, sans-serif';
-    ctx.fillStyle = '#e7eaf2';
-    outlined(ctx, bandName(state.bands) + '  ' + bandRange(state.bands) + '  ·  ' + f.meta.n_exposures + ' exposures', 10 * dpr, 27 * dpr);
+    ctx.fillStyle = '#f1f4fa';
+    outlined(ctx, bandName(state.bands) + '  ' + bandRange(state.bands) + '  ·  ' + TN('unit.exposures', f.meta.n_exposures), 10 * dpr, 27 * dpr);
 
     // compass: north up, east left
     const L = 24 * dpr, ox = 16 * dpr + L, oy = W - 16 * dpr;
@@ -1062,14 +1075,14 @@
       ctx.moveTo(ox - L, oy); ctx.lineTo(ox, oy); ctx.lineTo(ox, oy - L);
       ctx.stroke();
       ctx.lineWidth = 1.5 * dpr;
-      ctx.strokeStyle = '#e7eaf2';
+      ctx.strokeStyle = '#f1f4fa';
     }
     ctx.lineWidth = 3 * dpr;
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    outlined(ctx, 'N', ox, oy - L - 9 * dpr);
-    outlined(ctx, 'E', ox - L - 9 * dpr, oy);
+    outlined(ctx, T('compass.n'), ox, oy - L - 9 * dpr);
+    outlined(ctx, T('compass.e'), ox - L - 9 * dpr, oy);
 
     // scale bar
     const nice = [5, 10, 20, 30, 60, 120, 300, 600];
@@ -1083,7 +1096,7 @@
       ctx.moveTo(bx - barPx, by); ctx.lineTo(bx, by);
       ctx.stroke();
       ctx.lineWidth = 1.5 * dpr;
-      ctx.strokeStyle = '#e7eaf2';
+      ctx.strokeStyle = '#f1f4fa';
     }
     ctx.lineWidth = 3 * dpr;
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
@@ -1097,7 +1110,7 @@
     const W = Math.max(64, Math.round(rect.width * dpr));
     if (canvas.width !== W || canvas.height !== W) { canvas.width = W; canvas.height = W; }
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#04060b';
+    ctx.fillStyle = '#010204';
     ctx.fillRect(0, 0, W, W);
     const f = state.shown[state.frame];
     if (f) {
@@ -1131,15 +1144,15 @@
   function setSkyExpanded(on) {
     $('sky').classList.toggle('expanded', on);
     document.body.classList.toggle('sky-open', on);
-    $('sky-full').textContent = on ? 'Exit full screen' : 'Full screen';
+    $('sky-full').textContent = on ? T('sky.full.exit') : T('sky.full');
   }
 
   function footprintNote(ev) {
-    if (!ev.total) return 'SPHEREx exposures of the epoch on screen (none to show right now).';
-    const count = ev.total === 1 ? '1 SPHEREx exposure' : ev.total + ' SPHEREx exposures';
-    const drawn = ev.drawn && ev.drawn < ev.total ? ' (' + ev.drawn + ' drawn)' : '';
-    return count + drawn + ' from the epoch on screen. Each green square is one 3.5\u00b0-wide image ' +
-      'that contains the field; stacked together they make the blink frame.';
+    if (!ev.total) return T('sky.feet.none');
+    const exposures = TN('unit.exposures', ev.total);
+    return ev.drawn && ev.drawn < ev.total
+      ? T('sky.feet.drawn', { exposures: exposures, n: ev.drawn })
+      : T('sky.feet.note', { exposures: exposures });
   }
 
   /* Tell the sky map which epoch is on screen so it can show that epoch's footprints. */
@@ -1154,14 +1167,23 @@
 
   function initSky() {
     if (!sky) { document.body.classList.add('no-sky'); return; }
+    // One button per map instead of a menu: one click, and nothing that has to open first.
     const survey = $('sky-survey');
+    const surveyNames = { spherex: 'SPHEREx', wise: 'WISE', twomass: '2MASS', dss: 'DSS' };
     Object.keys(sky.surveys).forEach((id) => {
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = sky.surveys[id].label;
-      survey.appendChild(opt);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.survey = id;
+      b.textContent = surveyNames[id] || id;
+      b.title = T('survey.' + id);
+      b.classList.toggle('active', id === 'spherex');
+      survey.appendChild(b);
     });
-    survey.addEventListener('change', () => sky.setSurvey(survey.value));
+    survey.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button');
+      if (b) sky.setSurvey(b.dataset.survey);
+    });
+    $('sky-feet-note').textContent = T('sky.feet.none');
     $('sky-wave').max = String(sky.channels - 1);
     $('sky-wave').addEventListener('input', () => sky.setSlice(Number($('sky-wave').value)));
     $('sky-feet').addEventListener('change', () => sky.setFootprintsVisible($('sky-feet').checked));
@@ -1182,11 +1204,12 @@
     });
     sky.init('#skymap', (ev) => {
       if (ev.type === 'slice') {
+        survey.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.survey === ev.survey));
         $('sky-wave').value = ev.slice;
         $('sky-wave').disabled = !ev.cube;
         $('sky-wave-out').textContent = ev.cube
-          ? ev.wavelength.toFixed(2) + ' \u00b5m (D' + ev.detector + ')'
-          : 'not a SPHEREx map';
+          ? T('sky.wave.out', { w: ev.wavelength.toFixed(2), d: ev.detector })
+          : T('sky.wave.na');
       } else if (ev.type === 'footprints') {
         $('sky-feet-note').textContent = footprintNote(ev);
       } else if (ev.type === 'hover') {
@@ -1204,9 +1227,9 @@
   function defaultReadout() {
     const f = state.shown[state.frame];
     if (!f) { $('readout').innerHTML = '&nbsp;'; return; }
-    const span = f.meta.date_start === f.meta.date_end ? f.meta.date_start : f.meta.date_start + ' to ' + f.meta.date_end;
-    $('readout').textContent = 'Frame ' + (state.frame + 1) + ' of ' + state.shown.length + ' · observed ' + span +
-      ' · hover over the image for coordinates';
+    const span = f.meta.date_start === f.meta.date_end ? f.meta.date_start
+      : T('readout.span', { a: f.meta.date_start, b: f.meta.date_end });
+    $('readout').textContent = T('readout.default', { i: state.frame + 1, n: state.shown.length, span: span });
   }
 
   // ---------------------------------------------------------------- playback
@@ -1222,7 +1245,7 @@
   }
   function setPlaying(on) {
     state.playing = on;
-    $('play').textContent = on ? 'Pause' : 'Play';
+    $('play').textContent = on ? T('play.pause') : T('play.play');
     schedule();
   }
   function step(delta) {
@@ -1240,7 +1263,7 @@
     state.shown.forEach((f, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      const sub = f.kind === 'diff' ? 'minus ' + f.minus : f.meta.n_exposures + ' exposures';
+      const sub = f.kind === 'diff' ? T('frame.minus', { what: f.minus }) : TN('unit.exposures', f.meta.n_exposures);
       b.innerHTML = esc(f.meta.date) + '<small>' + esc(sub) + '</small>';
       b.addEventListener('click', () => { setPlaying(false); state.frame = i; draw(); });
       el.appendChild(b);
@@ -1253,25 +1276,26 @@
 
   function renderFacts() {
     const d = state.data, s = state.summary, rows = [];
-    if (state.name) rows.push(['Target', state.name]);
-    if (state.ra !== null) rows.push(['Centre', fmtRa(state.ra) + ' ' + fmtDec(state.dec)]);
-    if (state.track) {
-      rows.push(['Proper motion', (Math.hypot(state.track.pmra, state.track.pmdec) / 1000).toFixed(2) + '″ per year']);
+    if (state.name) rows.push([T('facts.target'), state.name]);
+    if (state.ra !== null) rows.push([T('facts.centre'), fmtRa(state.ra) + ' ' + fmtDec(state.dec)]);
+    if (state.track && Math.hypot(state.track.pmra, state.track.pmdec) >= 5) {   // mas/yr: below this it would read 0.00
+      rows.push([T('facts.pm'), T('facts.pm.value', { v: (Math.hypot(state.track.pmra, state.track.pmdec) / 1000).toFixed(2) })]);
     }
     if (d) {
-      rows.push(['Field of view', fmtAngle(d.fov) + ', ' + d.scale.toFixed(2) + '″ per pixel']);
-      rows.push(['Wavelengths', bandRange(state.bands)]);
-      rows.push(['Exposures used', d.n_used + ' of ' + d.n_found]);
-      rows.push(['Epochs', String(d.n_frames)]);
+      rows.push([T('facts.fov'), T('facts.fov.value', { fov: fmtAngle(d.fov), scale: d.scale.toFixed(2) })]);
+      rows.push([T('facts.wave'), bandRange(state.bands)]);
+      rows.push([T('facts.used'), T(d.thinned ? 'facts.used.limited' : 'facts.used.value',
+        { a: d.n_used, b: d.n_found, n: d.per_epoch })]);
+      rows.push([T('facts.epochs'), String(d.n_frames)]);
     }
     if (state.gaia && state.gaiaData && state.shown.length) {
       const stars = gaiaInFrame(state.shown[0]);
       const fast = stars.filter((q) => q.pm >= FAST_MOVER).length;
-      rows.push(['Gaia stars in field', stars.length + (fast ? ' (' + fast + ' fast-moving)' : '')]);
+      rows.push([T('facts.gaia'), fast ? T('facts.gaia.fast', { n: stars.length, k: fast }) : String(stars.length)]);
     }
     if (s) {
-      rows.push(['Images of this spot', String(s.n_images)]);
-      if (s.latest_date) rows.push(['Newest image', s.latest_date]);
+      rows.push([T('facts.images'), String(s.n_images)]);
+      if (s.latest_date) rows.push([T('facts.newest'), s.latest_date]);
     }
     $('facts').innerHTML = rows.map((r) => '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>').join('');
   }
@@ -1281,7 +1305,7 @@
     if (!s || !s.epochs.length) { wrap.hidden = true; return; }
     wrap.hidden = false;
     const head = s.epochs.map((e) =>
-      '<th data-epoch="' + e.index + '" title="' + e.date_start + ' to ' + e.date_end + '">' + e.date_start.slice(0, 7) + '</th>').join('');
+      '<th data-epoch="' + e.index + '" title="' + esc(T('readout.span', { a: e.date_start, b: e.date_end })) + '">' + e.date_start.slice(0, 7) + '</th>').join('');
     const body = Object.keys(BANDS).map((b) => {
       let total = 0;
       const cells = s.epochs.map((e) => {
@@ -1291,7 +1315,7 @@
       }).join('');
       return '<tr data-band="' + b + '"><th>D' + b + '<span>' + bandRange(b) + '</span></th>' + cells + '<td>' + total + '</td></tr>';
     }).join('');
-    $('tree').innerHTML = '<table><thead><tr><th>Detector</th>' + head + '<th>Total</th></tr></thead><tbody>' + body + '</tbody></table>';
+    $('tree').innerHTML = '<table><thead><tr><th>' + esc(T('tree.detector')) + '</th>' + head + '<th>' + esc(T('tree.total')) + '</th></tr></thead><tbody>' + body + '</tbody></table>';
     markTree();
   }
   function markTree() {
@@ -1316,10 +1340,18 @@
       $('fov').value = String(state.fov);
     }
     document.querySelectorAll('#bands button').forEach((b) => b.classList.toggle('active', b.dataset.bands === state.bands));
+    $('limit').value = String(state.limit);
+    if ($('limit').value !== String(state.limit)) {      // a number that is not in the list
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = String(state.limit);
+      $('limit').insertBefore(opt, $('limit').lastElementChild);
+      $('limit').value = String(state.limit);
+    }
+    $('limit').disabled = demo;                          // the recorded demo holds one version of each view
     document.querySelectorAll('#modes button').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mode));
     document.querySelectorAll('#examples .chip').forEach((b) => b.classList.toggle('active', b.dataset.target === state.target));
     $('ref-row').hidden = state.mode !== 'diff';
-    $('mode-hint').textContent = MODE_HINTS[state.mode];
+    $('mode-hint').textContent = T('mode.hint.' + state.mode);
     $('speed').value = state.speed;
     $('speed-out').textContent = state.speed + ' ms';
     $('white').value = whiteToSlider(state.white);
@@ -1327,13 +1359,13 @@
     $('black').value = state.black;
     $('black-out').textContent = '−' + state.black + ' σ';
     $('smooth').value = state.smooth;
-    $('smooth-out').textContent = state.smooth ? state.smooth + ' px' : 'off';
+    $('smooth-out').textContent = state.smooth ? state.smooth + ' px' : T('ctl.off');
     $('invert').checked = state.invert;
     $('interp').checked = state.interp;
     $('marks').checked = state.marks;
     $('gaia').checked = state.gaia;
     $('flags').checked = state.flags;
-    $('play').textContent = state.playing ? 'Pause' : 'Play';
+    $('play').textContent = state.playing ? T('play.pause') : T('play.play');
   }
 
   function syncUrl() {
@@ -1358,7 +1390,7 @@
     if (state.gaia) p.set('gaia', '1');
     if (state.flags) p.set('flags', '1');
     if (spec) p.set('spec', spec.moving ? 'target' : spec.ra.toFixed(5) + ',' + spec.dec.toFixed(5));
-    ['api', 'embed', 'demo'].forEach((k) => { if (query.get(k)) p.set(k, query.get(k)); });
+    ['api', 'embed', 'demo', 'lang'].forEach((k) => { if (query.get(k)) p.set(k, query.get(k)); });
     try {
       history.replaceState(null, '', location.pathname + '?' + p.toString());
     } catch (e) { /* not allowed for some file:// pages; the view still works */ }
@@ -1405,7 +1437,7 @@
     }
     ++loadToken;
     setMessage('');
-    showProgress(0, 'Looking up “' + text + '”…');
+    showProgress(0, T('prog.lookup', { name: text }));
     try {
       const r = await getJSON('/api/resolve?name=' + encodeURIComponent(text));
       let pos = { ra: r.ra, dec: r.dec }, track = null;
@@ -1424,14 +1456,15 @@
 
   function buildControls() {
     const ex = $('examples');
-    ex.appendChild(document.createTextNode('Try:'));
+    ex.appendChild(document.createTextNode(T('examples.try')));
+    $('play').textContent = state.playing ? T('play.pause') : T('play.play');
     TARGETS.forEach((t) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'chip';
       b.dataset.target = t.id;
       b.textContent = t.name;
-      b.title = t.blurb;
+      b.title = T('target.' + t.id);
       b.addEventListener('click', () => openTarget(t, false));
       ex.appendChild(b);
     });
@@ -1448,7 +1481,7 @@
     all.type = 'button';
     all.className = 'wide';
     all.dataset.bands = ALL_BANDS;
-    all.innerHTML = 'All six combined<small>slower: reads every image</small>';
+    all.innerHTML = esc(T('band.all')) + '<small>' + esc(T('band.all.sub')) + '</small>';
     bands.appendChild(all);
     bands.addEventListener('click', (ev) => {
       const btn = ev.target.closest('button');
@@ -1472,6 +1505,7 @@
       submit($('q').value);
     });
     $('fov').addEventListener('change', () => { state.fov = Number($('fov').value); load(); });
+    $('limit').addEventListener('change', () => { state.limit = Number($('limit').value); load(); });
 
     $('speed').addEventListener('input', () => { state.speed = Number($('speed').value); syncControls(); syncUrl(); schedule(); });
     $('white').addEventListener('input', () => { state.white = sliderToWhite(Number($('white').value)); syncControls(); syncUrl(); draw(); });
@@ -1511,8 +1545,8 @@
       if (sky) sky.setCursor(pos.ra, pos.dec);
       const v = f.px[y * d.n + x];
       $('readout').textContent = fmtRa(pos.ra) + '  ' + fmtDec(pos.dec) + '  ·  ' +
-        (v !== v ? 'no data' : !isFinite(v) ? 'saturated'
-          : v.toFixed(3) + ' MJy/sr' + (f.kind === 'diff' ? ' (difference)' : '')) +
+        (v !== v ? T('readout.nodata') : !isFinite(v) ? T('readout.saturated')
+          : v.toFixed(3) + ' MJy/sr' + (f.kind === 'diff' ? ' ' + T('readout.difference') : '')) +
         gaiaHover(x, y, f) + flagHover(x, y, f);
     });
     canvas.addEventListener('mouseleave', () => {
@@ -1565,8 +1599,9 @@
       return Number.isFinite(v) ? clamp(v, lo, hi) : fallback;
     };
     state.fov = num('fov', DEFAULTS.fov, 60, 1800);
+    state.limit = Math.round(num('limit', DEFAULTS.limit, 0, 5000));
     if (/^[1-6](,[1-6])*$/.test(query.get('bands') || '')) state.bands = query.get('bands');
-    if (MODE_HINTS[query.get('mode')]) state.mode = query.get('mode');
+    if (MODES.indexOf(query.get('mode')) >= 0) state.mode = query.get('mode');
     if (/^(auto|first|prev|mean|e\d+)$/.test(query.get('ref') || '')) state.ref = query.get('ref');
     state.speed = num('speed', DEFAULTS.speed, 100, 2000);
     state.white = num('white', DEFAULTS.white, 5, 5000);
@@ -1597,7 +1632,7 @@
       openTarget(TARGETS[0], false);
     } else {
       syncControls();
-      setMessage('Enter coordinates or an object name to start.');
+      setMessage(T('msg.start'));
     }
 
     // ?spec=target or ?spec=ra,dec reopens a spectrum

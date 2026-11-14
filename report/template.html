@@ -1,0 +1,356 @@
+<!doctype html>
+<!-- SPHEREx Blink Tree - layout of the report. Texts come from text_<lang>.json, see build.py.
+     Flat colours, the same as the tool's: blue, violet, a night that is almost black. No gradients. -->
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  @page { size: 210mm 297mm; margin: 0; }
+  :root {
+    --ink: #18213a; --muted: #5a6680; --line: #dde3ef; --soft: #f1f4fb;
+    --accent: #4c8dff; --on-accent: #020b1c;        /* blue: numbered dots, everything on the dark parts */
+    --violet: #c084fc;                              /* violet on the dark parts */
+    --accent-ink: #7c3aed; --accent-soft: #f0e7ff;  /* violet on the white pages: section numbers and tags */
+    --bar: #2f6fe0;                                 /* a deeper blue for the bars on the white pages */
+    --navy: #020409; --panel: #090e1a; --panel-line: #2c3a5c; --night-text: #f1f4fa; --night-muted: #93a1bd;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 9.5pt/1.42 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  h1, h2, h3, p, ul, ol, figure, table, pre { margin: 0; }
+  img { display: block; }
+
+  /* every page is one fixed A4 sheet */
+  .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; break-after: page; }
+  .page:last-child { break-after: auto; }
+  @media screen { body { background: #4a4f5a; } .page { margin: 6mm auto; background: #fff; box-shadow: 0 2mm 8mm rgba(0, 0, 0, 0.4); } }
+
+
+  /* ---------- cover ---------- */
+  .cover { background: var(--navy); color: var(--night-text); }
+  .cover > * { position: absolute; left: 16mm; right: 16mm; }
+  .c-top { top: 13mm; display: flex; justify-content: space-between; font-size: 8.4pt; font-weight: 600; letter-spacing: 1.7pt; color: var(--night-muted); }
+  .c-top span:last-child { color: var(--violet); }
+  .c-title { top: 29mm; display: flex; align-items: center; gap: 5mm; }
+  .c-title .logo { width: 22mm; height: 22mm; flex: none; overflow: visible; }
+  .c-title h1 { font-size: 41pt; line-height: 1; font-weight: 700; letter-spacing: -0.9pt; white-space: nowrap; }
+  .c-pitch { top: 54mm; font-size: 15.5pt; line-height: 1.25; font-weight: 600; color: var(--accent); }
+  .c-lead { top: 65mm; font-size: 10.4pt; line-height: 1.5; color: #cdd5e6; max-width: 164mm; }
+  .c-stats { top: 88mm; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .c-stats div { padding: 0.5mm 0 0.5mm 3.2mm; border-left: 0.7mm solid var(--accent); }
+  .c-stats b { display: block; font-size: 17pt; line-height: 1.15; font-weight: 700; color: #fff; white-space: nowrap; }
+  .c-stats span { display: block; margin-top: 0.6mm; font-size: 8.1pt; line-height: 1.3; color: var(--night-muted); }
+  .c-shot { top: 110mm; height: 154mm; border: 0.3mm solid var(--panel-line); border-radius: 3mm; overflow: hidden; background: var(--navy); }
+  .c-shot img { width: 100%; }
+  .c-foot { bottom: 9mm; display: grid; grid-template-columns: 1.15fr 1.45fr 1.2fr; gap: 6mm; align-items: center; padding-top: 3mm; border-top: 0.25mm solid var(--panel-line); font-size: 8.6pt; line-height: 1.35; }
+  .c-foot .team { display: flex; align-items: center; gap: 3.2mm; }
+  .c-foot .team img { flex: none; width: 15mm; height: 15mm; border-radius: 50%; }
+  .c-foot .who { display: block; font-size: 8.2pt; color: var(--night-muted); }
+  .c-foot b { display: block; margin-bottom: 0.5mm; font-size: 7.4pt; font-weight: 600; letter-spacing: 1.2pt; color: var(--night-muted); }
+  .c-foot span { color: var(--night-text); }
+  .c-foot .big { font-size: 10.5pt; font-weight: 600; }
+
+  /* ---------- inner pages ---------- */
+  .head, .foot { position: absolute; left: 16mm; right: 16mm; display: flex; justify-content: space-between; align-items: center; font-size: 7.9pt; color: var(--muted); }
+  .head { top: 8mm; height: 8mm; border-bottom: 0.25mm solid var(--line); }
+  .head .brand { display: flex; align-items: center; gap: 1.8mm; font-weight: 600; color: var(--ink); }
+  .head .logo { width: 5.4mm; height: 5.4mm; }
+  .foot { bottom: 7.5mm; }
+  .foot b { font-weight: 600; color: var(--ink); }
+  .body { position: absolute; left: 16mm; right: 16mm; top: 21mm; bottom: 15mm; }
+
+  h2 { display: flex; align-items: baseline; gap: 3mm; font-size: 20pt; line-height: 1.15; font-weight: 700; letter-spacing: -0.3pt; }
+  h2 .n { flex: none; color: var(--accent-ink); }
+  .lead { margin: 1.2mm 0 4.5mm; font-size: 10.6pt; line-height: 1.4; color: var(--muted); }
+  h3 { margin-bottom: 1.2mm; font-size: 10.6pt; line-height: 1.25; font-weight: 700; }
+  p + p { margin-top: 1.8mm; }
+  code, pre { font-family: Consolas, "Cascadia Mono", "Courier New", monospace; }
+  code { font-size: 8.7pt; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; }
+  .fig { padding: 1.1mm; background: var(--navy); border-radius: 2mm; }
+  .fig img { width: 100%; border-radius: 1.2mm; }
+  .cap { margin-top: 1.5mm; font-size: 8.1pt; line-height: 1.38; color: var(--muted); }
+
+  /* numbers with a label */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .stats div { padding: 2.4mm 3mm; background: var(--soft); border-radius: 2mm; border-left: 0.8mm solid var(--bar); }
+  .stats b { display: block; font-size: 14pt; line-height: 1.15; font-weight: 700; white-space: nowrap; }
+  .stats span { display: block; margin-top: 0.7mm; font-size: 7.9pt; line-height: 1.3; color: var(--muted); }
+
+  /* page 2: the four boxes of the tool */
+  .hero { margin-top: 5mm; }
+  .boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-top: 4.5mm; }
+  .boxes div { padding: 2.4mm 2.8mm 2.6mm; border: 0.25mm solid var(--line); border-radius: 2mm; font-size: 8.3pt; line-height: 1.36; color: var(--muted); }
+  .boxes b { display: block; margin-bottom: 0.8mm; font-size: 9.4pt; color: var(--ink); }
+  .boxes b i { display: inline-block; width: 4.6mm; height: 4.6mm; margin-right: 1.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 8pt; line-height: 4.6mm; text-align: center; }
+
+  /* page 3: who talks to whom */
+  .flow { display: grid; grid-template-columns: 41mm 24mm 41mm 12mm 1fr; align-items: center; padding: 3.4mm 4mm; background: var(--navy); border-radius: 2.5mm; color: var(--night-text); }
+  .node { padding: 2.6mm 3mm; background: var(--panel); border: 0.25mm solid var(--panel-line); border-radius: 2mm; font-size: 8.2pt; line-height: 1.36; }
+  .node b { display: block; font-size: 10.4pt; color: #fff; }
+  .node i { display: block; margin-bottom: 1.2mm; font-style: normal; font-size: 7.8pt; color: var(--accent); }
+  .node ul { padding-left: 3.4mm; color: #cdd5e6; }
+  .node.src { padding: 1.7mm 3mm; }
+  .node.src b { font-size: 9.3pt; }
+  .node.src i { margin-bottom: 0; color: var(--night-muted); }
+  .node.src + .node.src { margin-top: 1.8mm; }
+  .link { text-align: center; font-size: 7.4pt; line-height: 1.25; color: var(--night-muted); }
+  .link svg { display: block; margin: 0.8mm auto; }
+  .link svg path { stroke: var(--accent); stroke-width: 0.45; fill: none; }
+  .link svg polygon { fill: var(--accent); }
+
+  .steps { margin: 4.6mm 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps li { position: relative; padding: 0 0 2.4mm 9mm; counter-increment: step; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0.2mm; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 8.6pt; font-weight: 700; line-height: 5.6mm; text-align: center; }
+  .steps li:last-child { padding-bottom: 0; }
+
+  /* pages 4 and 5: one block per target */
+  .target { margin-top: 4.2mm; padding-top: 3.4mm; border-top: 0.25mm solid var(--line); }
+  .target header { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 1.2mm; }
+  .target header h3 { margin: 0; font-size: 12.4pt; }
+  .tag { padding: 0.2mm 2.4mm; border-radius: 3mm; background: var(--accent-soft); color: var(--accent-ink); font-size: 7.9pt; font-weight: 600; }
+  .media { display: flex; align-items: flex-start; gap: 2.6mm; margin-top: 2.6mm; }
+  .m figcaption { margin-top: 1.1mm; font-size: 7.7pt; line-height: 1.3; color: var(--muted); }
+  .m.sq { flex: none; width: 42mm; }
+  .m.plot { flex: none; width: 77.6mm; }
+  .m.half { flex: 1 1 0; min-width: 0; }
+  .keys { flex: 1 1 0; min-width: 0; display: grid; gap: 2.6mm; align-content: start; }
+  .keys.none { display: none; }
+  .keys div { padding: 2.2mm 2.8mm; background: var(--soft); border-radius: 2mm; border-left: 0.8mm solid var(--bar); }
+  .keys b { display: block; font-size: 13pt; line-height: 1.15; white-space: nowrap; }
+  .keys span { display: block; margin-top: 0.5mm; font-size: 7.7pt; line-height: 1.28; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  .glance { margin-top: 1.5mm; font-size: 8.8pt; }
+  .glance th, .glance td { padding: 1.1mm 2.4mm; text-align: left; border-bottom: 0.25mm solid var(--line); }
+  .glance thead th { font-size: 7.9pt; font-weight: 600; color: var(--muted); background: var(--soft); }
+  .glance td:nth-child(2), .glance td:nth-child(3), .glance th:nth-child(2), .glance th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+  .glance td:first-child { font-weight: 600; white-space: nowrap; }
+
+  /* page 6: the wish list */
+  .split { display: grid; grid-template-columns: 1fr 50mm; gap: 6mm; align-items: start; }
+  .wishes { font-size: 8.9pt; line-height: 1.36; }
+  .wishes th, .wishes td { padding: 1.55mm 0; vertical-align: top; text-align: left; border-bottom: 0.25mm solid var(--line); }
+  .wishes tr:last-child th, .wishes tr:last-child td { border-bottom: 0; }
+  .wishes th { position: relative; width: 43mm; padding-left: 6.4mm; padding-right: 3mm; font-weight: 700; }
+  .wishes th::before { content: "\2713"; position: absolute; left: 0; top: 1.7mm; width: 4.4mm; height: 4.4mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 7.6pt; line-height: 4.4mm; text-align: center; }
+  .wishes td { color: #323a4d; }
+  .rowfig { display: grid; grid-template-columns: 1fr 50mm; gap: 6mm; align-items: start; margin-top: 4.5mm; }
+  .plus { padding: 2.6mm 3mm; background: var(--soft); border-radius: 2mm; font-size: 8.5pt; line-height: 1.36; }
+  .plus h3 { font-size: 9.6pt; }
+  .plus ul { padding-left: 3.6mm; }
+  .plus li + li { margin-top: 0.7mm; }
+  .rule { margin: 4.2mm 0 1.8mm; padding-top: 3.2mm; border-top: 0.25mm solid var(--line); font-size: 12.4pt; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .cards div { padding: 2.6mm 3mm 2.8mm; background: var(--soft); border-radius: 2mm; border-top: 0.8mm solid var(--bar); font-size: 8.3pt; line-height: 1.36; color: var(--muted); }
+  .cards b { display: block; font-size: 14pt; line-height: 1.15; color: var(--ink); white-space: nowrap; }
+  .cards strong { display: block; margin: 0.6mm 0 1mm; font-size: 8.6pt; color: var(--ink); }
+  .note { margin-top: 3.4mm; font-size: 8.8pt; }
+
+  /* page 7 */
+  .cards.who b { font-size: 10.6pt; white-space: normal; margin-bottom: 0.8mm; }
+  .block { margin-top: 5mm; }
+  .tryrun { display: grid; grid-template-columns: 1fr 42mm; gap: 7mm; align-items: start; }
+  pre { margin: 1.6mm 0; padding: 2.6mm 3.2mm; background: var(--navy); border-radius: 2mm; color: #d6dcea; font-size: 7.9pt; line-height: 1.5; white-space: pre-wrap; }
+  .list { padding-left: 4mm; }
+  .list li + li { margin-top: 0.9mm; }
+  .chips { display: flex; flex-wrap: wrap; gap: 1.6mm; margin-top: 1.4mm; }
+  .chips span { padding: 0.5mm 2.6mm; border: 0.25mm solid var(--line); border-radius: 3mm; font-size: 8.2pt; }
+  .small { font-size: 8.7pt; line-height: 1.42; color: #323a4d; }
+  .ai { margin-top: 4mm; padding: 2.4mm 3.2mm; border-left: 0.8mm solid var(--bar); background: var(--soft); border-radius: 0 2mm 2mm 0; font-size: 8.7pt; }
+  .closing { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 4mm; padding: 4mm 5mm; background: var(--navy); border-radius: 2.5mm; color: var(--night-text); }
+  .closing .logo { width: 12mm; height: 12mm; flex: none; overflow: visible; }
+  .closing img { flex: none; width: 14mm; height: 14mm; border-radius: 50%; }
+  .closing b { display: block; font-size: 12pt; color: #fff; }
+  .closing span { font-size: 8.8pt; color: var(--night-muted); }
+  .closing .url { margin-left: auto; text-align: right; font-size: 9.4pt; color: var(--accent); font-weight: 600; }
+  .closing .url small { display: block; font-size: 7.6pt; font-weight: 400; color: var(--night-muted); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="bt-mark"><g fill="#4c8dff"><polygon points="8.17,28.34 12.83,30.66 22.75,6.87 21.25,6.13"/><polygon points="8.68,27.64 12.32,31.36 32.09,9.6 30.91,8.4"/><polygon points="9.43,27.13 11.57,31.87 35.35,19.28 34.65,17.72"/><circle cx="10.5" cy="29.5" r="7.3"/></g><circle cx="22" cy="6.5" r="2.7" fill="#c084fc"/><circle cx="35" cy="18.5" r="2.7" fill="#c084fc"/><path transform="translate(31.5 9)" fill="#fff" d="M0-4.9 1.3-1.3 4.9 0 1.3 1.3 0 4.9-1.3 1.3-4.9 0-1.3-1.3Z"/><circle cx="10.5" cy="29.5" r="4.6" fill="#fff"/></g><g id="bt-badge"><circle cx="20" cy="20" r="20" fill="#020409"/><circle cx="20" cy="20" r="18.4" fill="none" stroke="#c9ced8" stroke-width=".9"/><use href="#bt-mark" transform="translate(5.4 6.2) scale(.72)"/></g></defs></svg>
+
+<!-- 1: cover -->
+<section class="page cover">
+  <div class="c-top"><span>{{ event_caps }}</span><span>{{ cover.kind }}</span></div>
+  <div class="c-title">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-mark"/></svg>
+    <h1>SPHEREx Blink Tree</h1>
+  </div>
+  <p class="c-pitch">{{ cover.pitch }}</p>
+  <p class="c-lead">{{ cover.lead }}</p>
+  <div class="c-stats">{% for s in cover.stats %}<div><b>{{ s.value }}</b><span>{{ s.label }}</span></div>{% endfor s %}</div>
+  <div class="c-shot"><img src="figures/{{ lang }}/page.png" alt=""></div>
+  <div class="c-foot">
+    <div class="team"><img src="figures/kuyruk-team.jpg" alt=""><div><b>{{ cover.team_label }}</b><span class="big">{{ cover.team }}</span><span class="who">{{ cover.author }}</span></div></div>
+    <div><b>{{ cover.challenge_label }}</b><span>{{ cover.challenge }}</span></div>
+    <div><b>{{ cover.code_label }}</b><span>{{ repo }}</span></div>
+  </div>
+</section>
+
+<!-- 2: the challenge and our answer -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">1</span>{{ p2.title }}</h2>
+    <p class="lead">{{ p2.lead }}</p>
+    <div class="cols">
+      <div><h3>{{ p2.ask.title }}</h3>{% for t in p2.ask.text %}<p>{{ t }}</p>{% endfor t %}</div>
+      <div><h3>{{ p2.answer.title }}</h3>{% for t in p2.answer.text %}<p>{{ t }}</p>{% endfor t %}</div>
+    </div>
+    <figure class="fig hero"><img src="figures/{{ lang }}/hero.png" alt=""></figure>
+    <p class="cap">{{ p2.caption }}</p>
+    <div class="boxes">{% for b in p2.boxes %}<div><b><i>{{ b.n }}</i>{{ b.name }}</b>{{ b.text }}</div>{% endfor b %}</div>
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>2</b> / {{ pages }}</span></div>
+</section>
+
+<!-- 3: how it works -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">2</span>{{ p3.title }}</h2>
+    <p class="lead">{{ p3.lead }}</p>
+    <div class="flow">
+      <div class="node"><b>{{ p3.flow.browser.title }}</b><i>{{ p3.flow.browser.sub }}</i><ul>{% for x in p3.flow.browser.items %}<li>{{ x }}</li>{% endfor x %}</ul></div>
+      <div class="link">
+        {{ p3.flow.ask }}
+        <svg width="21mm" height="7mm" viewBox="0 0 21 7"><path d="M1 2H18"/><polygon points="20,2 17.2,0.6 17.2,3.4"/><path d="M20 5H3"/><polygon points="1,5 3.8,3.6 3.8,6.4"/></svg>
+        {{ p3.flow.answer }}
+      </div>
+      <div class="node"><b>{{ p3.flow.server.title }}</b><i>{{ p3.flow.server.sub }}</i><ul>{% for x in p3.flow.server.items %}<li>{{ x }}</li>{% endfor x %}</ul></div>
+      <div class="link"><svg width="11mm" height="34mm" viewBox="0 0 11 34"><path d="M0.5 17L8.6 4.4"/><polygon points="10,2.2 9.9,5.3 7.5,3.8"/><path d="M0.5 17H8"/><polygon points="10,17 7.2,15.6 7.2,18.4"/><path d="M0.5 17L8.6 29.6"/><polygon points="10,31.8 7.5,30.2 9.9,28.7"/></svg></div>
+      <div>{% for s in p3.flow.sources %}<div class="node src"><b>{{ s.title }}</b><i>{{ s.sub }}</i></div>{% endfor s %}</div>
+    </div>
+    <ol class="steps">{% for s in p3.steps %}<li><b>{{ s.title }}</b> {{ s.text }}</li>{% endfor s %}</ol>
+    <div class="cols">
+      <div>
+        <h3>{{ p3.spec.title }}</h3>{% for t in p3.spec.text %}<p>{{ t }}</p>{% endfor t %}
+      </div>
+      <div>
+        <h3>{{ p3.fresh.title }}</h3><p>{{ p3.fresh.text }}</p>
+        <figure class="fig" style="margin-top: 3mm"><img src="figures/{{ lang }}/coverage.png" alt=""></figure>
+        <p class="cap">{{ p3.coverage }}</p>
+      </div>
+    </div>
+    <div class="stats" style="position: absolute; left: 0; right: 0; bottom: 0">{% for s in p3.stats %}<div><b>{{ s.value }}</b><span>{{ s.label }}</span></div>{% endfor s %}</div>
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>3</b> / {{ pages }}</span></div>
+</section>
+
+<!-- 4: results, things that move -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">3</span>{{ p4.title }}</h2>
+    <p class="lead" style="margin-bottom: 0">{{ p4.lead }}</p>
+    {% for t in p4.targets %}
+    <article class="target">
+      <header><h3>{{ t.name }}</h3><span class="tag">{{ t.tag }}</span></header>
+      <p>{{ t.text }}</p>
+      <div class="media">
+        {% for m in t.media %}<figure class="m {{ m.kind }}"><div class="fig"><img src="figures/{{ lang }}/{{ m.img }}.png" alt=""></div><figcaption>{{ m.cap }}</figcaption></figure>{% endfor m %}
+        <div class="keys {{ t.keys_class }}">{% for k in t.keys %}<div><b>{{ k.value }}</b><span>{{ k.label }}</span></div>{% endfor k %}</div>
+      </div>
+    </article>
+    {% endfor t %}
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>4</b> / {{ pages }}</span></div>
+</section>
+
+<!-- 5: results, things that change -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">4</span>{{ p5.title }}</h2>
+    <p class="lead" style="margin-bottom: 0">{{ p5.lead }}</p>
+    {% for t in p5.targets %}
+    <article class="target">
+      <header><h3>{{ t.name }}</h3><span class="tag">{{ t.tag }}</span></header>
+      <p>{{ t.text }}</p>
+      <div class="media">
+        {% for m in t.media %}<figure class="m {{ m.kind }}"><div class="fig"><img src="figures/{{ lang }}/{{ m.img }}.png" alt=""></div><figcaption>{{ m.cap }}</figcaption></figure>{% endfor m %}
+        <div class="keys {{ t.keys_class }}">{% for k in t.keys %}<div><b>{{ k.value }}</b><span>{{ k.label }}</span></div>{% endfor k %}</div>
+      </div>
+    </article>
+    {% endfor t %}
+    <h3 class="rule">{{ p5.glance.title }}</h3>
+    <table class="glance">
+      <thead><tr>{% for h in p5.glance.head %}<th>{{ h }}</th>{% endfor h %}</tr></thead>
+      <tbody>{% for r in p5.glance.rows %}<tr>{% for c in r %}<td>{{ c }}</td>{% endfor c %}</tr>{% endfor r %}</tbody>
+    </table>
+    <p class="cap">{{ p5.glance.note }}</p>
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>5</b> / {{ pages }}</span></div>
+</section>
+
+<!-- 6: beyond the brief, and is it right? -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">5</span>{{ p6.title }}</h2>
+    <p class="lead">{{ p6.lead }}</p>
+    <div class="split">
+      <table class="wishes">{% for w in p6.wishes %}<tr><th>{{ w.wish }}</th><td>{{ w.done }}</td></tr>{% endfor w %}</table>
+      <div><figure class="fig"><img src="figures/{{ lang }}/sky.png" alt=""></figure><p class="cap">{{ p6.sky }}</p></div>
+    </div>
+    <div class="rowfig">
+      <div><figure class="fig"><img src="figures/{{ lang }}/flags_list.png" alt=""></figure><p class="cap">{{ p6.flags }}</p></div>
+      <div class="plus"><h3>{{ p6.plus.title }}</h3><ul>{% for x in p6.plus.items %}<li>{{ x }}</li>{% endfor x %}</ul></div>
+    </div>
+    <h3 class="rule">{{ p6.check.title }}</h3>
+    <div class="cards">{% for c in p6.check.cards %}<div><b>{{ c.value }}</b><strong>{{ c.label }}</strong>{{ c.text }}</div>{% endfor c %}</div>
+    <p class="note"><b>{{ p6.limits.title }}</b> {{ p6.limits.text }}</p>
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>6</b> / {{ pages }}</span></div>
+</section>
+
+<!-- 7: who it is for, how to run it, what is next -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>{{ event }}</span></div>
+  <div class="body">
+    <h2><span class="n">6</span>{{ p7.title }}</h2>
+    <p class="lead">{{ p7.lead }}</p>
+    <h3>{{ p7.who.title }}</h3>
+    <div class="cards who">{% for c in p7.who.items %}<div><b>{{ c.name }}</b>{{ c.text }}</div>{% endfor c %}</div>
+    <div class="tryrun block">
+      <div>
+        <h3>{{ p7.run.title }}</h3>
+        <p>{{ p7.run.before }}</p>
+        <pre>{{ p7.run.code }}</pre>
+        <p>{{ p7.run.after }}</p>
+        <h3 style="margin-top: 4.5mm">{{ p7.try.title }}</h3>
+        <ol class="list">{% for x in p7.try.items %}<li>{{ x }}</li>{% endfor x %}</ol>
+        <p class="cap">{{ p7.try.keys }}</p>
+      </div>
+      <div><figure class="fig"><img src="figures/{{ lang }}/phone.png" alt=""></figure><p class="cap">{{ p7.phone }}</p></div>
+    </div>
+    <div class="cols block">
+      <div>
+        <h3>{{ p7.next.title }}</h3>
+        <ul class="list">{% for x in p7.next.items %}<li>{{ x }}</li>{% endfor x %}</ul>
+      </div>
+      <div>
+        <h3>{{ p7.tech.title }}</h3>
+        <div class="chips">{% for x in p7.tech.items %}<span>{{ x }}</span>{% endfor x %}</div>
+      </div>
+    </div>
+    <div class="block">
+      <h3>{{ p7.credits.title }}</h3>
+      {% for t in p7.credits.text %}<p class="small">{{ t }}</p>{% endfor t %}
+    </div>
+    <p class="ai"><b>{{ p7.ai.title }}</b> {{ p7.ai.text }}</p>
+    <div class="closing">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-mark"/></svg>
+      <div><b>SPHEREx Blink Tree</b><span>{{ p7.closing }}</span></div>
+      <div class="url">{{ repo }}<small>{{ p7.closing_url }}</small></div>
+      <img src="figures/kuyruk-team.jpg" alt="">
+    </div>
+  </div>
+  <div class="foot"><span>{{ repo }}</span><span><b>7</b> / {{ pages }}</span></div>
+</section>
+
+</body>
+</html>

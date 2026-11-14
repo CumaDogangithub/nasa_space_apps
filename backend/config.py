@@ -31,5 +31,5 @@ BANDS: dict[int, tuple[float, float]] = {
     6: (4.42, 5.00),
 }
 
-SIA_CACHE_HOURS = 6       # how long a position search is reused
+SIA_CACHE_HOURS = 24      # how long a position search is reused (new SPHEREx data arrive weekly)
 DOWNLOAD_THREADS = 32

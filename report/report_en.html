@@ -1,0 +1,385 @@
+<!doctype html>
+<!-- SPHEREx Blink Tree - layout of the report. Texts come from text_<lang>.json, see build.py.
+     Flat colours, the same as the tool's: blue, violet, a night that is almost black. No gradients. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SPHEREx Blink Tree · Kuyruk Team · Project report</title>
+<style>
+  @page { size: 210mm 297mm; margin: 0; }
+  :root {
+    --ink: #18213a; --muted: #5a6680; --line: #dde3ef; --soft: #f1f4fb;
+    --accent: #4c8dff; --on-accent: #020b1c;        /* blue: numbered dots, everything on the dark parts */
+    --violet: #c084fc;                              /* violet on the dark parts */
+    --accent-ink: #7c3aed; --accent-soft: #f0e7ff;  /* violet on the white pages: section numbers and tags */
+    --bar: #2f6fe0;                                 /* a deeper blue for the bars on the white pages */
+    --navy: #020409; --panel: #090e1a; --panel-line: #2c3a5c; --night-text: #f1f4fa; --night-muted: #93a1bd;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 9.5pt/1.42 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  h1, h2, h3, p, ul, ol, figure, table, pre { margin: 0; }
+  img { display: block; }
+
+  /* every page is one fixed A4 sheet */
+  .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; break-after: page; }
+  .page:last-child { break-after: auto; }
+  @media screen { body { background: #4a4f5a; } .page { margin: 6mm auto; background: #fff; box-shadow: 0 2mm 8mm rgba(0, 0, 0, 0.4); } }
+
+
+  /* ---------- cover ---------- */
+  .cover { background: var(--navy); color: var(--night-text); }
+  .cover > * { position: absolute; left: 16mm; right: 16mm; }
+  .c-top { top: 13mm; display: flex; justify-content: space-between; font-size: 8.4pt; font-weight: 600; letter-spacing: 1.7pt; color: var(--night-muted); }
+  .c-top span:last-child { color: var(--violet); }
+  .c-title { top: 29mm; display: flex; align-items: center; gap: 5mm; }
+  .c-title .logo { width: 22mm; height: 22mm; flex: none; overflow: visible; }
+  .c-title h1 { font-size: 41pt; line-height: 1; font-weight: 700; letter-spacing: -0.9pt; white-space: nowrap; }
+  .c-pitch { top: 54mm; font-size: 15.5pt; line-height: 1.25; font-weight: 600; color: var(--accent); }
+  .c-lead { top: 65mm; font-size: 10.4pt; line-height: 1.5; color: #cdd5e6; max-width: 164mm; }
+  .c-stats { top: 88mm; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .c-stats div { padding: 0.5mm 0 0.5mm 3.2mm; border-left: 0.7mm solid var(--accent); }
+  .c-stats b { display: block; font-size: 17pt; line-height: 1.15; font-weight: 700; color: #fff; white-space: nowrap; }
+  .c-stats span { display: block; margin-top: 0.6mm; font-size: 8.1pt; line-height: 1.3; color: var(--night-muted); }
+  .c-shot { top: 110mm; height: 154mm; border: 0.3mm solid var(--panel-line); border-radius: 3mm; overflow: hidden; background: var(--navy); }
+  .c-shot img { width: 100%; }
+  .c-foot { bottom: 9mm; display: grid; grid-template-columns: 1.15fr 1.45fr 1.2fr; gap: 6mm; align-items: center; padding-top: 3mm; border-top: 0.25mm solid var(--panel-line); font-size: 8.6pt; line-height: 1.35; }
+  .c-foot .team { display: flex; align-items: center; gap: 3.2mm; }
+  .c-foot .team img { flex: none; width: 15mm; height: 15mm; border-radius: 50%; }
+  .c-foot .who { display: block; font-size: 8.2pt; color: var(--night-muted); }
+  .c-foot b { display: block; margin-bottom: 0.5mm; font-size: 7.4pt; font-weight: 600; letter-spacing: 1.2pt; color: var(--night-muted); }
+  .c-foot span { color: var(--night-text); }
+  .c-foot .big { font-size: 10.5pt; font-weight: 600; }
+
+  /* ---------- inner pages ---------- */
+  .head, .foot { position: absolute; left: 16mm; right: 16mm; display: flex; justify-content: space-between; align-items: center; font-size: 7.9pt; color: var(--muted); }
+  .head { top: 8mm; height: 8mm; border-bottom: 0.25mm solid var(--line); }
+  .head .brand { display: flex; align-items: center; gap: 1.8mm; font-weight: 600; color: var(--ink); }
+  .head .logo { width: 5.4mm; height: 5.4mm; }
+  .foot { bottom: 7.5mm; }
+  .foot b { font-weight: 600; color: var(--ink); }
+  .body { position: absolute; left: 16mm; right: 16mm; top: 21mm; bottom: 15mm; }
+
+  h2 { display: flex; align-items: baseline; gap: 3mm; font-size: 20pt; line-height: 1.15; font-weight: 700; letter-spacing: -0.3pt; }
+  h2 .n { flex: none; color: var(--accent-ink); }
+  .lead { margin: 1.2mm 0 4.5mm; font-size: 10.6pt; line-height: 1.4; color: var(--muted); }
+  h3 { margin-bottom: 1.2mm; font-size: 10.6pt; line-height: 1.25; font-weight: 700; }
+  p + p { margin-top: 1.8mm; }
+  code, pre { font-family: Consolas, "Cascadia Mono", "Courier New", monospace; }
+  code { font-size: 8.7pt; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; }
+  .fig { padding: 1.1mm; background: var(--navy); border-radius: 2mm; }
+  .fig img { width: 100%; border-radius: 1.2mm; }
+  .cap { margin-top: 1.5mm; font-size: 8.1pt; line-height: 1.38; color: var(--muted); }
+
+  /* numbers with a label */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .stats div { padding: 2.4mm 3mm; background: var(--soft); border-radius: 2mm; border-left: 0.8mm solid var(--bar); }
+  .stats b { display: block; font-size: 14pt; line-height: 1.15; font-weight: 700; white-space: nowrap; }
+  .stats span { display: block; margin-top: 0.7mm; font-size: 7.9pt; line-height: 1.3; color: var(--muted); }
+
+  /* page 2: the four boxes of the tool */
+  .hero { margin-top: 5mm; }
+  .boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-top: 4.5mm; }
+  .boxes div { padding: 2.4mm 2.8mm 2.6mm; border: 0.25mm solid var(--line); border-radius: 2mm; font-size: 8.3pt; line-height: 1.36; color: var(--muted); }
+  .boxes b { display: block; margin-bottom: 0.8mm; font-size: 9.4pt; color: var(--ink); }
+  .boxes b i { display: inline-block; width: 4.6mm; height: 4.6mm; margin-right: 1.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 8pt; line-height: 4.6mm; text-align: center; }
+
+  /* page 3: who talks to whom */
+  .flow { display: grid; grid-template-columns: 41mm 24mm 41mm 12mm 1fr; align-items: center; padding: 3.4mm 4mm; background: var(--navy); border-radius: 2.5mm; color: var(--night-text); }
+  .node { padding: 2.6mm 3mm; background: var(--panel); border: 0.25mm solid var(--panel-line); border-radius: 2mm; font-size: 8.2pt; line-height: 1.36; }
+  .node b { display: block; font-size: 10.4pt; color: #fff; }
+  .node i { display: block; margin-bottom: 1.2mm; font-style: normal; font-size: 7.8pt; color: var(--accent); }
+  .node ul { padding-left: 3.4mm; color: #cdd5e6; }
+  .node.src { padding: 1.7mm 3mm; }
+  .node.src b { font-size: 9.3pt; }
+  .node.src i { margin-bottom: 0; color: var(--night-muted); }
+  .node.src + .node.src { margin-top: 1.8mm; }
+  .link { text-align: center; font-size: 7.4pt; line-height: 1.25; color: var(--night-muted); }
+  .link svg { display: block; margin: 0.8mm auto; }
+  .link svg path { stroke: var(--accent); stroke-width: 0.45; fill: none; }
+  .link svg polygon { fill: var(--accent); }
+
+  .steps { margin: 4.6mm 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps li { position: relative; padding: 0 0 2.4mm 9mm; counter-increment: step; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0.2mm; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 8.6pt; font-weight: 700; line-height: 5.6mm; text-align: center; }
+  .steps li:last-child { padding-bottom: 0; }
+
+  /* pages 4 and 5: one block per target */
+  .target { margin-top: 4.2mm; padding-top: 3.4mm; border-top: 0.25mm solid var(--line); }
+  .target header { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 1.2mm; }
+  .target header h3 { margin: 0; font-size: 12.4pt; }
+  .tag { padding: 0.2mm 2.4mm; border-radius: 3mm; background: var(--accent-soft); color: var(--accent-ink); font-size: 7.9pt; font-weight: 600; }
+  .media { display: flex; align-items: flex-start; gap: 2.6mm; margin-top: 2.6mm; }
+  .m figcaption { margin-top: 1.1mm; font-size: 7.7pt; line-height: 1.3; color: var(--muted); }
+  .m.sq { flex: none; width: 42mm; }
+  .m.plot { flex: none; width: 77.6mm; }
+  .m.half { flex: 1 1 0; min-width: 0; }
+  .keys { flex: 1 1 0; min-width: 0; display: grid; gap: 2.6mm; align-content: start; }
+  .keys.none { display: none; }
+  .keys div { padding: 2.2mm 2.8mm; background: var(--soft); border-radius: 2mm; border-left: 0.8mm solid var(--bar); }
+  .keys b { display: block; font-size: 13pt; line-height: 1.15; white-space: nowrap; }
+  .keys span { display: block; margin-top: 0.5mm; font-size: 7.7pt; line-height: 1.28; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  .glance { margin-top: 1.5mm; font-size: 8.8pt; }
+  .glance th, .glance td { padding: 1.1mm 2.4mm; text-align: left; border-bottom: 0.25mm solid var(--line); }
+  .glance thead th { font-size: 7.9pt; font-weight: 600; color: var(--muted); background: var(--soft); }
+  .glance td:nth-child(2), .glance td:nth-child(3), .glance th:nth-child(2), .glance th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+  .glance td:first-child { font-weight: 600; white-space: nowrap; }
+
+  /* page 6: the wish list */
+  .split { display: grid; grid-template-columns: 1fr 50mm; gap: 6mm; align-items: start; }
+  .wishes { font-size: 8.9pt; line-height: 1.36; }
+  .wishes th, .wishes td { padding: 1.55mm 0; vertical-align: top; text-align: left; border-bottom: 0.25mm solid var(--line); }
+  .wishes tr:last-child th, .wishes tr:last-child td { border-bottom: 0; }
+  .wishes th { position: relative; width: 43mm; padding-left: 6.4mm; padding-right: 3mm; font-weight: 700; }
+  .wishes th::before { content: "\2713"; position: absolute; left: 0; top: 1.7mm; width: 4.4mm; height: 4.4mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 7.6pt; line-height: 4.4mm; text-align: center; }
+  .wishes td { color: #323a4d; }
+  .rowfig { display: grid; grid-template-columns: 1fr 50mm; gap: 6mm; align-items: start; margin-top: 4.5mm; }
+  .plus { padding: 2.6mm 3mm; background: var(--soft); border-radius: 2mm; font-size: 8.5pt; line-height: 1.36; }
+  .plus h3 { font-size: 9.6pt; }
+  .plus ul { padding-left: 3.6mm; }
+  .plus li + li { margin-top: 0.7mm; }
+  .rule { margin: 4.2mm 0 1.8mm; padding-top: 3.2mm; border-top: 0.25mm solid var(--line); font-size: 12.4pt; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .cards div { padding: 2.6mm 3mm 2.8mm; background: var(--soft); border-radius: 2mm; border-top: 0.8mm solid var(--bar); font-size: 8.3pt; line-height: 1.36; color: var(--muted); }
+  .cards b { display: block; font-size: 14pt; line-height: 1.15; color: var(--ink); white-space: nowrap; }
+  .cards strong { display: block; margin: 0.6mm 0 1mm; font-size: 8.6pt; color: var(--ink); }
+  .note { margin-top: 3.4mm; font-size: 8.8pt; }
+
+  /* page 7 */
+  .cards.who b { font-size: 10.6pt; white-space: normal; margin-bottom: 0.8mm; }
+  .block { margin-top: 5mm; }
+  .tryrun { display: grid; grid-template-columns: 1fr 42mm; gap: 7mm; align-items: start; }
+  pre { margin: 1.6mm 0; padding: 2.6mm 3.2mm; background: var(--navy); border-radius: 2mm; color: #d6dcea; font-size: 7.9pt; line-height: 1.5; white-space: pre-wrap; }
+  .list { padding-left: 4mm; }
+  .list li + li { margin-top: 0.9mm; }
+  .chips { display: flex; flex-wrap: wrap; gap: 1.6mm; margin-top: 1.4mm; }
+  .chips span { padding: 0.5mm 2.6mm; border: 0.25mm solid var(--line); border-radius: 3mm; font-size: 8.2pt; }
+  .small { font-size: 8.7pt; line-height: 1.42; color: #323a4d; }
+  .ai { margin-top: 4mm; padding: 2.4mm 3.2mm; border-left: 0.8mm solid var(--bar); background: var(--soft); border-radius: 0 2mm 2mm 0; font-size: 8.7pt; }
+  .closing { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 4mm; padding: 4mm 5mm; background: var(--navy); border-radius: 2.5mm; color: var(--night-text); }
+  .closing .logo { width: 12mm; height: 12mm; flex: none; overflow: visible; }
+  .closing img { flex: none; width: 14mm; height: 14mm; border-radius: 50%; }
+  .closing b { display: block; font-size: 12pt; color: #fff; }
+  .closing span { font-size: 8.8pt; color: var(--night-muted); }
+  .closing .url { margin-left: auto; text-align: right; font-size: 9.4pt; color: var(--accent); font-weight: 600; }
+  .closing .url small { display: block; font-size: 7.6pt; font-weight: 400; color: var(--night-muted); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="bt-mark"><g fill="#4c8dff"><polygon points="8.17,28.34 12.83,30.66 22.75,6.87 21.25,6.13"/><polygon points="8.68,27.64 12.32,31.36 32.09,9.6 30.91,8.4"/><polygon points="9.43,27.13 11.57,31.87 35.35,19.28 34.65,17.72"/><circle cx="10.5" cy="29.5" r="7.3"/></g><circle cx="22" cy="6.5" r="2.7" fill="#c084fc"/><circle cx="35" cy="18.5" r="2.7" fill="#c084fc"/><path transform="translate(31.5 9)" fill="#fff" d="M0-4.9 1.3-1.3 4.9 0 1.3 1.3 0 4.9-1.3 1.3-4.9 0-1.3-1.3Z"/><circle cx="10.5" cy="29.5" r="4.6" fill="#fff"/></g><g id="bt-badge"><circle cx="20" cy="20" r="20" fill="#020409"/><circle cx="20" cy="20" r="18.4" fill="none" stroke="#c9ced8" stroke-width=".9"/><use href="#bt-mark" transform="translate(5.4 6.2) scale(.72)"/></g></defs></svg>
+
+<!-- 1: cover -->
+<section class="page cover">
+  <div class="c-top"><span>NASA SPACE APPS CHALLENGE 2026</span><span>PROJECT REPORT · NOVEMBER 2026</span></div>
+  <div class="c-title">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-mark"/></svg>
+    <h1>SPHEREx Blink Tree</h1>
+  </div>
+  <p class="c-pitch">Watch the infrared sky as a film and catch what moves or changes.</p>
+  <p class="c-lead">Type a position or an object name. The tool reads every image NASA’s SPHEREx telescope has taken of that spot live from the archive, lines them up and plays them as a short film. Click a star and its 0.75–5 µm spectrum and light curve are drawn at once.</p>
+  <div class="c-stats"><div><b>5 / 5</b><span>test targets work in the tool</span></div><div><b>102</b><span>infrared colours, 0.75–5 µm</span></div><div><b>< 1%</b><span>of each 65 MB file is read (3′ field)</span></div><div><b>0.4–0.8″</b><span>median position difference from Gaia</span></div></div>
+  <div class="c-shot"><img src="figures/en/page.png" alt=""></div>
+  <div class="c-foot">
+    <div class="team"><img src="figures/kuyruk-team.jpg" alt=""><div><b>TEAM</b><span class="big">Kuyruk Team</span><span class="who">Cuma Doğan</span></div></div>
+    <div><b>CHALLENGE</b><span>A public web tool that brings SPHEREx images to life over time</span></div>
+    <div><b>SOURCE CODE</b><span>github.com/CumaDogangithub/nasa_space_apps</span></div>
+  </div>
+</section>
+
+<!-- 2: the challenge and our answer -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">1</span>The challenge and our answer</h2>
+    <p class="lead">The challenge was to do for SPHEREx what WiseView does for WISE: show the same patch of sky on different dates, one after another.</p>
+    <div class="cols">
+      <div><h3>What was asked?</h3><p>SPHEREx is a NASA space telescope that maps the whole sky in 102 infrared colours (0.75–5 µm). It returns to the same spot about every six months; its data are public and updated every week.</p><p>The brief: the user enters a position and the tool shows the SPHEREx images of that patch of sky one after another, like a little video, so that objects that move or change brightness are easy to spot.</p><p>Five test targets were given: Barnard’s Star, Epsilon Indi B, WISE 0855, RW Aurigae and R Draconis.</p></div>
+      <div><h3>Our answer</h3><p>SPHEREx Blink Tree is a web page. You type a position or an object name; the tool finds every SPHEREx image that contains that spot, reads only the pixels it needs, lines them up on the sky, stacks them visit by visit and plays them as a film.</p><p>Nothing is computed in advance: for every field the tool asks the archive. So it works anywhere on the sky and stays current as new data arrive.</p><p>The interface is in English and Turkish. Four numbered boxes lead the user from the map to the film, and from the film to the spectrum.</p></div>
+    </div>
+    <figure class="fig hero"><img src="figures/en/hero.png" alt=""></figure>
+    <p class="cap">The main screen: Barnard’s Star in detector D2 (1.10–1.63 µm). Blue circles are stars Gaia knows; the pink arrow shows where the star will be in five years. On the map at the left, the green squares are the footprints of six of the 24 SPHEREx exposures of that visit.</p>
+    <div class="boxes"><div><b><i>1</i>Sky map</b>Shows where you are looking and how the telescope scanned that spot; a slider steps through the 102 channels.</div><div><b><i>2</i>Blink</b>The same patch of sky on different dates. Difference removes what does not change; Sum gives a deeper image.</div><div><b><i>3</i>Adjust</b>Six detectors, field of view, contrast, Gaia stars and SPHEREx’s own quality flags.</div><div><b><i>4</i>Spectrum and light curve</b>Click a star to draw its 0.75–5 µm spectrum and how its brightness changed over time.</div></div>
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>2</b> / 7</span></div>
+</section>
+
+<!-- 3: how it works -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">2</span>How it works</h2>
+    <p class="lead">A plain page in the browser, a small Python server and NASA’s open archives. There is no store of ready-made images in between.</p>
+    <div class="flow">
+      <div class="node"><b>Browser</b><i>plain HTML + JavaScript, nothing to install</i><ul><li>blink · difference · sum</li><li>contrast and smoothing</li><li>spectrum and light curve</li><li>sky map (Aladin Lite)</li></ul></div>
+      <div class="link">
+        position, field, detector
+        <svg width="21mm" height="7mm" viewBox="0 0 21 7"><path d="M1 2H18"/><polygon points="20,2 17.2,0.6 17.2,3.4"/><path d="M20 5H3"/><polygon points="1,5 3.8,3.6 3.8,6.4"/></svg>
+        raw numeric frames
+      </div>
+      <div class="node"><b>Server</b><i>Python · FastAPI + astropy</i><ul><li>image search</li><li>alignment and stacking</li><li>brightness measurement</li><li>disk cache</li></ul></div>
+      <div class="link"><svg width="11mm" height="34mm" viewBox="0 0 11 34"><path d="M0.5 17L8.6 4.4"/><polygon points="10,2.2 9.9,5.3 7.5,3.8"/><path d="M0.5 17H8"/><polygon points="10,17 7.2,15.6 7.2,18.4"/><path d="M0.5 17L8.6 29.6"/><polygon points="10,31.8 7.5,30.2 9.9,28.7"/></svg></div>
+      <div><div class="node src"><b>IRSA image search (SIA2)</b><i>“Which images cover this spot?” · 1–5&nbsp;s</i></div><div class="node src"><b>Open SPHEREx data on AWS S3</b><i>only the bytes needed · HTTP range requests</i></div><div class="node src"><b>ESA Gaia DR3 · SIMBAD</b><i>star positions, proper motions, names</i></div></div>
+    </div>
+    <ol class="steps"><li><b>Find the images.</b> IRSA’s image search service lists every SPHEREx image whose footprint contains the spot, in 1–5 seconds.</li><li><b>Read only the pixels needed.</b> Each image is a 62–66 MB file. The server does not download it; it reads the header and the rows around the target with HTTP range requests. For a 3′ field about 0.4 MB per file is enough: less than 1% of the file.</li><li><b>Align.</b> Each small window is moved onto a common north-up grid using the image’s own astrometry, and its local sky brightness is removed.</li><li><b>Group into visits and stack.</b> A gap of more than 15 days starts a new visit (epoch). Within an epoch all exposures of one detector are averaged with outliers rejected; saturated star cores are marked rather than averaged.</li><li><b>Show.</b> The browser receives raw numeric frames and does the contrast, blinking, difference and sum itself, so the controls respond instantly.</li></ol>
+    <div class="cols">
+      <div>
+        <h3>Spectra without a spectrograph</h3><p>SPHEREx has no prism. The colour passed by the filter in front of each detector changes smoothly across the detector, and as the telescope steps between exposures a star lands on a different colour each time. The tool measures the clicked spot in every exposure of all six detectors, inside a circle of 12″ radius, and looks up each exposure’s wavelength in the detector’s own table. Put together, the points form a spectrum from 0.75 to 5 µm.</p><p>For the light curve every exposure is divided by the star’s own average at the same wavelength, so a red star does not seem to vary just because different visits sampled different wavelengths.</p>
+      </div>
+      <div>
+        <h3>Why it is always current</h3><p>The tool keeps no store of ready-made images; it asks the archive what exists now and reuses the answer for a day at most. Images added each week appear by themselves. A new data release takes one line: its collection name in <code>releases.json</code>.</p>
+        <figure class="fig" style="margin-top: 3mm"><img src="figures/en/coverage.png" alt=""></figure>
+        <p class="cap">What the archive holds for one spot: exposures per detector and visit (RW Aurigae). Clicking a row blinks that detector.</p>
+      </div>
+    </div>
+    <div class="stats" style="position: absolute; left: 0; right: 0; bottom: 0"><div><b>1–5 s</b><span>to search the archive</span></div><div><b>≈ 0.4 MB</b><span>read per file (3′ field)</span></div><div><b>5–30 s</b><span>first view of a new field; then instant from the cache</span></div><div><b>6.15″</b><span>size of one SPHEREx pixel on the sky</span></div></div>
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>3</b> / 7</span></div>
+</section>
+
+<!-- 4: results, things that move -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">3</span>Results: things that move</h2>
+    <p class="lead" style="margin-bottom: 0">All five test targets work in the tool. Every picture on these two pages is a screenshot of the tool itself.</p>
+    
+    <article class="target">
+      <header><h3>Barnard’s Star</h3><span class="tag">the fastest star in the sky</span></header>
+      <p>SPHEREx visited this star three times: August 2025, March 2026 and August 2026. Between the first and the last visit it moved about 10″ north. In the difference image its old place is dark and its new place bright; the pink arrow shows where the motion measured by Gaia will take it in five years.</p>
+      <div class="media">
+        <figure class="m sq"><div class="fig"><img src="figures/en/barnard_first.png" alt=""></div><figcaption>26 August 2025</figcaption></figure><figure class="m sq"><div class="fig"><img src="figures/en/barnard_last.png" alt=""></div><figcaption>21 August 2026</figcaption></figure><figure class="m sq"><div class="fig"><img src="figures/en/barnard_diff.png" alt=""></div><figcaption>difference: last visit − first visit</figcaption></figure>
+        <div class="keys "><div><b>10.4″</b><span>motion per year</span></div><div><b>≈ 1.7 pixels</b><span>shift between the first and last visit</span></div><div><b>358</b><span>images in the archive</span></div></div>
+      </div>
+    </article>
+    
+    <article class="target">
+      <header><h3>WISE 0855−0714</h3><span class="tag">the coldest known brown dwarf</span></header>
+      <p>The coordinates in the brief are where it was in 2010; it moves 8.1″ a year, so it is now about 2′ further west, and the tool centres the field on where it is today. The dwarf shows up only in detector D6. In the difference image the fixed stars cancel and the dwarf leaves a dark–bright pair along its motion.</p>
+      <div class="media">
+        <figure class="m sq"><div class="fig"><img src="figures/en/wise_first.png" alt=""></div><figcaption>12 November 2025 · D6</figcaption></figure><figure class="m sq"><div class="fig"><img src="figures/en/wise_last.png" alt=""></div><figcaption>27 April 2026 · D6</figcaption></figure><figure class="m sq"><div class="fig"><img src="figures/en/wise_diff.png" alt=""></div><figcaption>difference: April − November</figcaption></figure>
+        <div class="keys "><div><b>D6</b><span>visible only at 4.42–5.00 µm</span></div><div><b>8.1″</b><span>motion per year</span></div><div><b>≈ 2′</b><span>from its 2010 position</span></div></div>
+      </div>
+    </article>
+    
+    <article class="target">
+      <header><h3>Epsilon Indi B</h3><span class="tag">a pair of brown dwarfs</span></header>
+      <p>The tool followed the object through five visits and measured it in 454 exposures. The spectrum has peaks near 1.3, 1.6, 2.1 and 4 µm with deep dips between them: the signature of water vapour and methane in a brown dwarf’s atmosphere. No ready-made spectrum file was used; every point was measured from the images on the spot.</p>
+      <div class="media">
+        <figure class="m sq"><div class="fig"><img src="figures/en/epsindb_frame.png" alt=""></div><figcaption>11 October 2025 · Gaia arrow</figcaption></figure><figure class="m plot"><div class="fig"><img src="figures/en/epsindb_spec.png" alt=""></div><figcaption>spectrum; colours are visits (the three best sampled)</figcaption></figure>
+        <div class="keys "><div><b>454</b><span>exposures in the spectrum</span></div><div><b>4.7″</b><span>motion per year</span></div><div><b>≈ 58 mJy</b><span>brightest near 4 µm</span></div></div>
+      </div>
+    </article>
+    
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>4</b> / 7</span></div>
+</section>
+
+<!-- 5: results, things that change -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">4</span>Results: things that change</h2>
+    <p class="lead" style="margin-bottom: 0">Because every exposure sees the star at a different wavelength, the tool shows change not only over time but also by colour.</p>
+    
+    <article class="target">
+      <header><h3>RW Aurigae</h3><span class="tag">a young star that varies irregularly</span></header>
+      <p>The tool measured the star in 332 exposures over three visits (September 2025, March 2026, September 2026). Within a year its brightness at 3.8–5 µm fell to about half (2900 → 1500 mJy at 4.4–5 µm), while at 0.75–1.1 µm it rose about 1.5 times. A tool that looks in one colour would see only one side of this change.</p>
+      <div class="media">
+        <figure class="m half"><div class="fig"><img src="figures/en/rwaur_spec.png" alt=""></div><figcaption>Spectrum coloured by visit: the three visits separate at long wavelengths.</figcaption></figure><figure class="m half"><div class="fig"><img src="figures/en/rwaur_curve.png" alt=""></div><figcaption>Light curve coloured by detector: D5 and D6 fade while D1 brightens (1 = the star’s own average).</figcaption></figure>
+        <div class="keys none"></div>
+      </div>
+    </article>
+    
+    <article class="target">
+      <header><h3>R Draconis</h3><span class="tag">a red giant that pulsates every 245 days</span></header>
+      <p>It lies close to the northern deep field, so SPHEREx watches it almost continuously. It is too bright for SPHEREx: its core is saturated in 591 of the 592 exposures read. The tool notices this and measures the light in a ring around the core instead, 25–43″ from the centre. That light changes by more than a factor of two from visit to visit.</p>
+      <div class="media">
+        <figure class="m sq"><div class="fig"><img src="figures/en/rdra_frame.png" alt=""></div><figcaption>7 December 2025 · circles: the ring</figcaption></figure><figure class="m plot"><div class="fig"><img src="figures/en/rdra_curve.png" alt=""></div><figcaption>light in the ring over time; colours are detectors</figcaption></figure>
+        <div class="keys "><div><b>2493</b><span>images in the archive</span></div><div><b>591 / 592</b><span>exposures with a saturated core</span></div><div><b>25–43″</b><span>the ring that is measured</span></div></div>
+      </div>
+    </article>
+    
+    <h3 class="rule">The five targets at a glance</h3>
+    <table class="glance">
+      <thead><tr><th>Target</th><th>Images in the archive</th><th>Visits in the film</th><th>What the tool shows</th></tr></thead>
+      <tbody><tr><td>Barnard’s Star</td><td>358</td><td>3</td><td>a 10″ shift north in one year, where Gaia predicts</td></tr><tr><td>WISE 0855−0714</td><td>258</td><td>4</td><td>visible only in D6; a motion trace in the difference image</td></tr><tr><td>Epsilon Indi B</td><td>458</td><td>5</td><td>motion and a brown-dwarf spectrum</td></tr><tr><td>RW Aurigae</td><td>335</td><td>3</td><td>fades by half at 4–5 µm, brightens at 1 µm</td></tr><tr><td>R Draconis</td><td>2493</td><td>5</td><td>saturated core; light curve from the ring around it</td></tr></tbody>
+    </table>
+    <p class="cap">3902 images in total. “Visits in the film” is the number of frames in the target’s default detector (D6 for WISE 0855, D2 for the others).</p>
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>5</b> / 7</span></div>
+</section>
+
+<!-- 6: beyond the brief, and is it right? -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">5</span>Beyond the brief, and is it right?</h2>
+    <p class="lead">The brief listed eight optional features. All eight are in the tool.</p>
+    <div class="split">
+      <table class="wishes"><tr><th>Easy update for new data releases</th><td>Nothing is pre-computed; new images appear by themselves. A new release is one line in <code>releases.json</code>.</td></tr><tr><th>Creative use of the 102 bands</th><td>Six detectors are stacked separately or together; the map steps through 102 channels; a click gives a star’s spectrum.</td></tr><tr><th>Add and subtract epochs</th><td>Difference subtracts a chosen visit; Sum averages them all.</td></tr><tr><th>Selectable field of view</th><td>From 1′ to 30′; the pixel scale adapts as the field grows.</td></tr><tr><th>Gaia and WISE overlays</th><td>Gaia DR3 stars are drawn at each frame’s date; the map has WISE, 2MASS and DSS layers.</td></tr><tr><th>Coordinates in the URL, embedding</th><td>The whole view is in the address (position, field, detector, mode, language); <code>embed=1</code> puts it in another page.</td></tr><tr><th>Contamination flags and metadata</th><td>SPHEREx’s quality flags are painted on the frame and explained in plain words; every exposure is listed with its time and file.</td></tr><tr><th>astropy and Aladin Lite</th><td>The server reads and aligns with astropy; the sky map is Aladin Lite.</td></tr></table>
+      <div><figure class="fig"><img src="figures/en/sky.png" alt=""></figure><p class="cap">The sky map: the orange mark is the field being blinked, the green squares are a few of the SPHEREx exposures of that visit.</p></div>
+    </div>
+    <div class="rowfig">
+      <div><figure class="fig"><img src="figures/en/flags_list.png" alt=""></figure><p class="cap">With Flags on, every exposure behind the frame is listed: when it was taken, the wavelength it saw at the centre of the field, SPHEREx’s flags and a link to the original file.</p></div>
+      <div class="plus"><h3>Extras that were not on the list</h3><ul><li>English and Turkish interface</li><li>Offline demo that runs without the server</li><li>Search by object name (SIMBAD)</li><li>Ring photometry for saturated stars</li><li>Linked pointer between map and film</li><li>Keeps working when the archive’s search is down</li></ul></div>
+    </div>
+    <h3 class="rule">Is it right?</h3>
+    <div class="cards"><div><b>0.4–0.8″</b><strong>median position difference from Gaia DR3</strong>In three 6′ test fields (D2) we compared where stars should fall in a frame with where they appear. The difference is a small fraction of a 6.15″ SPHEREx pixel.</div><div><b>0.94 · 1.01 · 0.97</b><strong>SPHEREx / 2MASS brightness ratio (J,&nbsp;H,&nbsp;Ks)</strong>Five ordinary stars near RW Aurigae were measured the same way and compared with the 2MASS catalogue.</div><div><b>5–30 s</b><strong>first view of a new field</strong>It depends on the width of the field and the number of detectors read. Results are cached; the second view is instant.</div></div>
+    <p class="note"><b>Honest limits.</b> The brightness values are quick-look numbers: neighbours inside the measuring circle add to the result, and no correction is made for light that falls outside it. A SPHEREx pixel is 6.15″, so objects very close together cannot be separated. The cores of very bright stars saturate; for them only the light in the ring can be followed.</p>
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>6</b> / 7</span></div>
+</section>
+
+<!-- 7: who it is for, how to run it, what is next -->
+<section class="page">
+  <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
+  <div class="body">
+    <h2><span class="n">6</span>Who it is for, how to run it, what is next</h2>
+    <p class="lead">The tool works today: three commands to install, one minute to try.</p>
+    <h3>Who is it for?</h3>
+    <div class="cards who"><div><b>Volunteer astronomers</b>They can look for nearby, cold, fast-moving objects in SPHEREx’s 102 colours, the way they know from WiseView.</div><div><b>Students and teachers</b>They can show “do stars move?” and “what is a spectrum?” with real space data.</div><div><b>Researchers</b>They can check every SPHEREx visit of a source, its spectrum and its quality flags in a few seconds.</div></div>
+    <div class="tryrun block">
+      <div>
+        <h3>How to run it</h3>
+        <p>Python 3.10 or newer is enough (on macOS and Linux use <code>.venv/bin/python</code>):</p>
+        <pre>python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
+.venv/Scripts/python -m uvicorn backend.app:app --port 8000</pre>
+        <p>Then open <code>http://localhost:8000</code> in a browser. To look without installing anything, just open <code>web/index.html</code>: the five test targets are shown from recorded data.</p>
+        <h3 style="margin-top: 4.5mm">Try it in one minute</h3>
+        <ol class="list"><li>Press <b>WISE 0855−0714</b> at the top: the film starts in detector D6.</li><li>Switch to <b>Difference</b> (key D): the fixed stars cancel, the dwarf stays.</li><li>Choose <b>Epsilon Indi B</b> and press <b>Measure the target</b>: its spectrum is drawn.</li><li>For <b>RW Aurigae</b> switch to <b>Light curve</b>: watch it fade within a year.</li><li>On the map, move the <b>Map wavelength</b> slider: the sky in 102 colours.</li></ol>
+        <p class="cap">Keys: space play/pause · ← → step · 1–6 detector · D difference · G Gaia · F flags</p>
+      </div>
+      <div><figure class="fig"><img src="figures/en/phone.png" alt=""></figure><p class="cap">The same tool on a phone or tablet: the boxes stack.</p></div>
+    </div>
+    <div class="cols block">
+      <div>
+        <h3>What is next?</h3>
+        <ul class="list"><li>Use the quality flags to clean the spectra automatically</li><li>Label known asteroids in the frames</li><li>Read large fields faster</li><li>Put the tool on a public server</li></ul>
+      </div>
+      <div>
+        <h3>Built with</h3>
+        <div class="chips"><span>Python 3.10+</span><span>FastAPI</span><span>astropy</span><span>NumPy · SciPy</span><span>HTML + JavaScript (no build step)</span><span>Aladin Lite</span></div>
+      </div>
+    </div>
+    <div class="block">
+      <h3>Data and acknowledgements</h3>
+      <p class="small">This project uses data products from SPHEREx, a joint project of the Jet Propulsion Laboratory and the California Institute of Technology funded by NASA, obtained from the NASA/IPAC Infrared Science Archive (IRSA). Positions and proper motions come from the ESA Gaia mission (DR3) and the SIMBAD database. The sky map is Aladin Lite (CDS, Strasbourg). The interface is modelled on WiseView and on IRSA’s SPHEREx Data Explorer.</p>
+    </div>
+    <p class="ai"><b>Use of AI.</b> The code and this report were developed with the help of an AI coding assistant (Claude). The measurements were checked against the Gaia DR3 and 2MASS catalogues.</p>
+    <div class="closing">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-mark"/></svg>
+      <div><b>SPHEREx Blink Tree</b><span>The infrared sky as a film: one position, one click.</span></div>
+      <div class="url">github.com/CumaDogangithub/nasa_space_apps<small>source code and setup</small></div>
+      <img src="figures/kuyruk-team.jpg" alt="">
+    </div>
+  </div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>7</b> / 7</span></div>
+</section>
+
+</body>
+</html>
