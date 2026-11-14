@@ -25,12 +25,29 @@
     fov: DEFAULTS.fov, bands: DEFAULTS.bands, mode: DEFAULTS.mode, ref: DEFAULTS.ref,
     speed: DEFAULTS.speed, white: DEFAULTS.white, black: DEFAULTS.black, smooth: DEFAULTS.smooth,
     invert: false, interp: true, marks: true,
+    gaia: false, gaiaData: null,         // overlay of Gaia DR3 stars: on/off and the stars around the field
+    flags: false, flagData: null,        // SPHEREx quality flags: on/off and the flag maps of the frames
     playing: true, frame: 0,
     data: null, summary: null,
     shown: []                            // frames after applying the view mode and smoothing
   };
 
   const memo = new Map();
+  const gaiaMemo = new Map();
+  const FAST_MOVER = 150;                // proper motion in mas/yr above which a Gaia star is highlighted
+  const ARROW_YEARS = 5;                 // length of a fast mover's arrow, in years of motion
+  const GAIA_HINT = 'Blue circles are stars the Gaia mission already knows, moved to the date of each frame. ' +
+    'Pink arrows show where fast-moving stars will be in ' + ARROW_YEARS + ' years. ' +
+    'Something that moves but has no circle is not in Gaia.';
+  let gaiaToken = 0;
+  const flagMemo = new Map();
+  const flagCanvas = document.createElement('canvas');
+  const FLAGS_HINT = 'Pink marks pixels that SPHEREx itself flagged in at least a quarter of the exposures behind this frame: ' +
+    'cosmic-ray hits, saturation, leftover charge, ghosts of bright stars. Point at a pixel to see which flags. ' +
+    'Every exposure is listed in the table further down.';
+  let flagToken = 0;
+  let flagCanvasKey = '';
+  let exposureKey = '';
   const canvas = $('view');
   const off = document.createElement('canvas');
   let loadToken = 0;
@@ -188,10 +205,90 @@
 
   // ---------------------------------------------------------------- server
 
+  // ---------------------------------------------------------------- offline demo
+  //
+  // If the server cannot be reached (the page was opened straight from disk, or
+  // the server is down) the five example targets are shown from recorded answers
+  // in web/demo/<id>.js, made by scripts/build_demo.py. ?demo=1 forces this mode.
+
+  const NO_SERVER = 'Start the server to explore any position: python -m uvicorn backend.app:app --port 8000';
+  let demo = query.get('demo') === '1';
+  const bundles = {};
+
+  function showDemoBanner(made) {
+    const el = $('demo-banner');
+    el.hidden = false;
+    el.textContent = 'Offline demo: the live server is not running, so the five example targets are shown from data recorded' +
+      (made ? ' on ' + made : ' earlier') + '. ' + NO_SERVER;
+  }
+
+  /* The recorded data of the example target on screen (loaded on first use). */
+  function demoBundle() {
+    const id = state.target;
+    if (!id) {
+      return Promise.reject(new Error('Without the live server only the five example targets can be shown.\n' + NO_SERVER));
+    }
+    if (!bundles[id]) {
+      bundles[id] = new Promise((resolve, reject) => {
+        const have = () => window.BLINK_DEMO && window.BLINK_DEMO[id];
+        if (have()) { resolve(have()); return; }
+        const tag = document.createElement('script');
+        tag.src = 'demo/' + id + '.js';
+        tag.onload = () => (have() ? resolve(have()) : reject(new Error('The recorded data for this target is unreadable.')));
+        tag.onerror = () => reject(new Error('The recorded data for this target is missing (web/demo/' + id + '.js).'));
+        document.head.appendChild(tag);
+      });
+      bundles[id].then((b) => showDemoBanner(b.made), () => { delete bundles[id]; });
+    }
+    return bundles[id];
+  }
+
+  function base64ToBuffer(text) {
+    const bin = atob(text), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.buffer;
+  }
+
+  /* Answer a request to the server from the recorded data. */
+  async function demoAnswer(path) {
+    const what = path.split('?')[0].replace('/api/', '');
+    const q = new URLSearchParams(path.split('?')[1] || '');
+    if (what === 'progress') return { label: '', fraction: 0 };
+    if (what === 'resolve') throw new Error('Looking up names needs the live server.\n' + NO_SERVER);
+    const b = await demoBundle();
+    if (what === 'search') return b.search;
+    if (what === 'gaia') return b.gaia;
+    if (what === 'spectrum') {
+      if (q.get('track')) return b.spectrum;
+      throw new Error('The offline demo only holds the spectrum of the target itself. ' + NO_SERVER);
+    }
+    if (what === 'frames' || what === 'flags') {
+      if (Math.abs(Number(q.get('fov')) - b.fov) > 0.5) {
+        throw new Error('The offline demo holds this target with a ' + fmtAngle(b.fov) + ' field only.\n' + NO_SERVER);
+      }
+      const recorded = b[what][q.get('bands')];
+      if (!recorded) {
+        throw new Error(what === 'flags'
+          ? 'The offline demo holds the quality flags of the ' + bandName(b.bands) + ' view only.'
+          : 'This view is not part of the offline demo.\n' + NO_SERVER);
+      }
+      return base64ToBuffer(recorded);
+    }
+    throw new Error('Not available in the offline demo.');
+  }
+
   async function getJSON(path) {
+    if (demo) return demoAnswer(path);
     const r = await fetch(API + path);
     if (!r.ok) throw new Error(await errorText(r));
     return r.json();
+  }
+
+  async function getBinary(path) {
+    if (demo) return demoAnswer(path);
+    const r = await fetch(API + path);
+    if (!r.ok) throw new Error(await errorText(r));
+    return r.arrayBuffer();
   }
 
   async function errorText(r) {
@@ -222,9 +319,8 @@
       getJSON('/api/progress?job=' + job).then(onProgress).catch(() => {});
     }, 400);
     try {
-      const r = await fetch(API + '/api/frames?ra=' + ra + '&dec=' + dec + '&fov=' + fov + '&bands=' + bands + '&job=' + job);
-      if (!r.ok) throw new Error(await errorText(r));
-      return decodeFrames(await r.arrayBuffer());
+      return decodeFrames(await getBinary(
+        '/api/frames?ra=' + ra + '&dec=' + dec + '&fov=' + fov + '&bands=' + bands + '&job=' + job));
     } finally {
       clearInterval(poll);
     }
@@ -279,10 +375,13 @@
     if (state.ra === null) return;
     const token = ++loadToken;
     const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands].join('|');
+    if (spec && specField !== state.ra.toFixed(5) + '|' + state.dec.toFixed(5)) clearSpectrum();   // a new field
     syncUrl();
     syncControls();
     setMessage('');
     loadSummary();
+    loadGaia();
+    loadFlags();
     if (sky) {
       sky.setTarget(state.ra, state.dec, state.fov);
       if (skyBands !== state.bands) { skyBands = state.bands; sky.setBand(state.bands); }
@@ -446,10 +545,463 @@
     ctx.fillText(text, x, y);
   }
 
+  // ---------------------------------------------------------------- spectrum
+
+  const plot = window.BlinkSpectrum || null;
+  const SPEC_HINT = 'Click a star in the blink image to measure it in every SPHEREx exposure. ' +
+    'Each exposure sees the star at a different wavelength, so together they give its spectrum from 0.75 to 5 µm, ' +
+    'and how its brightness changed from one visit to the next.';
+  const APERTURE_ARCSEC = 12.3;          // radius of the measuring circle used by the server
+  let spec = null;                       // {ra, dec, moving, data}: the source being measured
+  let specField = '';                    // the field it belongs to
+  let specToken = 0;
+  let specView = 'spectrum';
+  let specKind = 'core';                 // 'core': the star itself; 'ring': the light around a saturated star
+  let specRejected = 0;                  // exposures set aside as outliers in the plot
+
+  function setSpecStatus(text) { $('spec-status').textContent = text; }
+
+  function syncSpecControls() {
+    document.querySelectorAll('#spec-views button').forEach((b) => b.classList.toggle('active', b.dataset.view === specView));
+  }
+
+  function clearSpectrum() {
+    ++specToken;
+    spec = null;
+    specKind = 'core';
+    $('spec-kind').hidden = true;
+    $('spec-progress').hidden = true;
+    if (plot) plot.setData(null);
+    setSpecStatus(SPEC_HINT);
+  }
+
+  /* What the plot shows: the star itself or, for a saturated star, the ring of light around it. */
+  function specPlotData() {
+    const res = spec && spec.data;
+    if (!res) return null;
+    if (specKind !== 'ring' || !res.ring) return res;
+    const points = res.points.map((p, i) => {
+      const r = res.ring[i];
+      return [p[0], p[1], r ? r[0] : null, r ? r[1] : null, p[4], p[5], p[6], 0];
+    });
+    return Object.assign({}, res, { points: points });
+  }
+
+  function specSummary() {
+    const res = spec.data, ring = specKind === 'ring' && !!res.ring;
+    const fast = spec.moving && state.track && Math.hypot(state.track.pmra, state.track.pmdec) >= 100;
+    const where = spec.moving
+      ? (state.name || 'The target') + (fast ? ', followed as it moves' : '')
+      : fmtRa(spec.ra) + ' ' + fmtDec(spec.dec);
+    let text;
+    if (ring) {
+      text = (spec.moving ? (state.name || 'The target') : where) + ' is too bright for SPHEREx: its core is saturated in ' + res.n_saturated + ' of ' + res.points.length +
+        ' exposures. Shown instead is the light in a ring around it, between the two dashed circles (' +
+        res.ring_arcsec[0] + '″ to ' + res.ring_arcsec[1] + '″ from the centre), measured in ' +
+        res.ring.filter((r) => r).length + ' exposures. It rises and falls with the star but is not its total brightness.';
+    } else {
+      text = where + ': measured in ' + res.n_points + ' exposures over ' + res.epochs.length +
+        (res.epochs.length === 1 ? ' epoch' : ' epochs') + ', inside the dashed circle (' + res.aperture_arcsec + '″ radius).';
+      if (res.n_saturated) {
+        text += ' ' + res.n_saturated + (res.n_saturated === 1 ? ' exposure is' : ' exposures are') +
+          ' left out because the star is saturated there.';
+      }
+    }
+    if (res.thinned) text += ' Only ' + res.n_read + ' of the ' + res.n_found + ' exposures were read.';
+    if (specRejected) {
+      text += ' ' + specRejected + (specRejected === 1 ? ' exposure jumps' : ' exposures jump') +
+        ' away from the rest (a cosmic ray or bad pixel) and ' + (specRejected === 1 ? 'is' : 'are') + ' set aside.';
+    }
+    if (specView === 'curve') {
+      return text + ' In the light curve every exposure is compared with this star’s own average brightness at the same ' +
+        'wavelength, so 1 means average and 0.5 means half as bright.';
+    }
+    return text + ' Dots are single exposures; lines join the medians of neighbouring exposures.' +
+      (ring ? '' : ' Anything else inside the circle adds to the brightness.');
+  }
+
+  /* Put the measurement on the plot in the chosen form and describe it. */
+  function showSpectrum() {
+    const res = spec.data;
+    $('spec-kind').hidden = !res.ring;
+    document.querySelectorAll('#spec-kind button').forEach((b) => b.classList.toggle('active', b.dataset.kind === specKind));
+    plot.setUnits(specKind === 'ring' && res.ring ? 'Light in the ring (mJy)' : 'Flux density (mJy)');
+    specRejected = plot.setData(specPlotData());
+    setSpecStatus(specSummary());
+    draw();                               // the circles on the blink image follow the choice
+  }
+
+  /* Is the star at this position saturated in the frame on screen? */
+  function saturatedAt(ra, dec) {
+    const d = state.data, f = state.shown[state.frame];
+    if (!d || !f || f.kind !== 'image') return false;
+    const q = skyToPixel(ra, dec, geometry(d)), ci = Math.round(q.x), cj = Math.round(q.y);
+    for (let j = cj - 1; j <= cj + 1; j++) {
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        if (i >= 0 && j >= 0 && i < d.n && j < d.n && f.px[j * d.n + i] === Infinity) return true;
+      }
+    }
+    return false;
+  }
+
+  /* Measure a sky position (or the moving target) in every exposure and plot the result.
+     `wide` tells the server the star is saturated, so it measures the ring around it straight away. */
+  function measureSpectrum(pos, moving, quiet, wide) {
+    if (!plot || state.ra === null) return;
+    const token = ++specToken;
+    spec = { ra: pos.ra, dec: pos.dec, moving: moving, data: null };
+    specField = state.ra.toFixed(5) + '|' + state.dec.toFixed(5);
+    specKind = 'core';
+    $('spec-kind').hidden = true;
+    plot.setData(null);
+    syncUrl();
+    draw();
+    const job = Math.random().toString(36).slice(2);
+    let url = '/api/spectrum?ra=' + pos.ra + '&dec=' + pos.dec + '&job=' + job + (wide ? '&wide=1' : '');
+    if (moving) {
+      const t = state.track;
+      url += '&track=' + [t.ra, t.dec, t.epoch, t.pmra, t.pmdec].join(',');
+    }
+    setSpecStatus('Measuring this spot in every SPHEREx exposure…');
+    $('spec-progress').hidden = false;
+    $('spec-bar').style.width = '0%';
+    $('spec-progress-label').textContent = 'Asking the archive which exposures cover this spot…';
+    const poll = setInterval(() => {
+      getJSON('/api/progress?job=' + job).then((p) => {
+        if (token !== specToken || !p.label) return;
+        $('spec-bar').style.width = Math.round(100 * p.fraction) + '%';
+        $('spec-progress-label').textContent = p.label === 'headers'
+          ? 'Finding the spot on each exposure…' : 'Measuring the brightness in each exposure…';
+      }).catch(() => {});
+    }, 400);
+    getJSON(url).then((res) => {
+      if (token !== specToken) return;
+      spec.data = res;
+      if (res.ring && res.mostly_saturated) {          // a saturated star: its light curve is what can be trusted
+        specKind = 'ring';
+        specView = 'curve';
+        plot.setView(specView);
+        syncSpecControls();
+      }
+      showSpectrum();
+    }).catch((err) => {
+      if (token === specToken) setSpecStatus('The spectrum could not be measured. ' + explain(err));
+    }).finally(() => {
+      clearInterval(poll);
+      if (token === specToken) $('spec-progress').hidden = true;
+    });
+    if (!quiet) $('spectrum-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* A click on the blink image: the tracked target if it was hit, otherwise the brightest pixel nearby. */
+  function pickSpectrum(x, y) {
+    const d = state.data, f = state.shown[state.frame];
+    if (!d || !f || !plot) return;
+    const g = geometry(d);
+    if (state.track && f.meta.mjd) {
+      const t = propagate(state.track, yearOf(f.meta.mjd)), q = skyToPixel(t.ra, t.dec, g);
+      if (Math.hypot(q.x - x, q.y - y) * d.scale <= 10) {
+        measureSpectrum({ ra: state.ra, dec: state.dec }, true, false, saturatedAt(t.ra, t.dec));
+        return;
+      }
+    }
+    let bx = x, by = y;
+    if (f.kind === 'image') {
+      let best = -Infinity;
+      for (let j = Math.max(0, y - 2); j <= Math.min(d.n - 1, y + 2); j++) {
+        for (let i = Math.max(0, x - 2); i <= Math.min(d.n - 1, x + 2); i++) {
+          const v = f.px[j * d.n + i];
+          if (v === v && v > best) { best = v; bx = i; by = j; }
+        }
+      }
+    }
+    const pos = pixelToSky(bx, by, g);
+    measureSpectrum(pos, false, false, saturatedAt(pos.ra, pos.dec));
+  }
+
+  /* Dashed circles on the blink image: what is being measured, drawn to scale. */
+  function drawSpecMarker(ctx, f, g, s, dpr) {
+    if (!spec) return;
+    let where = spec;
+    if (spec.moving && state.track && f.meta.mjd) where = propagate(state.track, yearOf(f.meta.mjd));
+    const q = skyToPixel(where.ra, where.dec, g);
+    if (!insideFrame(q, g.n)) return;
+    const ring = specKind === 'ring' && spec.data && spec.data.ring;
+    const radii = ring ? spec.data.ring_arcsec : [APERTURE_ARCSEC];
+    ctx.setLineDash([4 * dpr, 4 * dpr]);
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.strokeStyle = '#f2e56b';
+    radii.forEach((arcsec) => {
+      ctx.beginPath();
+      ctx.arc((q.x + 0.5) * s, (q.y + 0.5) * s, Math.max(6 * dpr, arcsec / g.scale * s), 0, 2 * Math.PI);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  // ---------------------------------------------------------------- quality flags
+
+  function decodeFlags(buf) {
+    const view = new DataView(buf);
+    const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+    if (magic !== 'SBF1') throw new Error('Unexpected answer from the server.');
+    const headLen = view.getUint32(4, true);
+    const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, headLen)));
+    const count = head.n_frames * head.n * head.n;
+    head.fraction = new Uint8Array(buf, 8 + headLen, count);                 // share of exposures flagged, 0-255
+    head.common = new Int32Array(buf, 8 + headLen + Math.ceil(count / 4) * 4, count);   // flags set in many exposures
+    return head;
+  }
+
+  function setFlagsNote(text) {
+    const el = $('flags-note');
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  /* Fetch SPHEREx's own quality flags for the frames on screen while the overlay is on. */
+  function loadFlags() {
+    const token = ++flagToken;
+    flagCanvasKey = '';
+    exposureKey = '';
+    if (!state.flags || state.ra === null) {
+      state.flagData = null;
+      setFlagsNote('');
+      draw();
+      return;
+    }
+    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov, state.bands].join('|');
+    const done = (data) => {
+      data.key = key;
+      state.flagData = data;
+      setFlagsNote(FLAGS_HINT);
+      draw();
+    };
+    if (flagMemo.has(key)) { done(flagMemo.get(key)); return; }
+    state.flagData = null;
+    setFlagsNote('Reading SPHEREx\u2019s quality flags\u2026');
+    draw();
+    const job = Math.random().toString(36).slice(2);
+    const poll = setInterval(() => {
+      getJSON('/api/progress?job=' + job).then((p) => {
+        if (token === flagToken && p.label) {
+          setFlagsNote('Reading SPHEREx\u2019s quality flags\u2026 ' + Math.round(100 * p.fraction) + '%');
+        }
+      }).catch(() => {});
+    }, 400);
+    getBinary('/api/flags?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov + '&bands=' + state.bands + '&job=' + job)
+      .then(decodeFlags)
+      .then((data) => {
+        flagMemo.set(key, data);
+        if (token === flagToken) done(data);
+      })
+      .catch((err) => {
+        if (token === flagToken) setFlagsNote('The quality flags could not be read. ' + explain(err));
+      })
+      .finally(() => clearInterval(poll));
+  }
+
+  /* Which flag frame goes with the blink frame on screen (-1 if none). */
+  function flagFrame(f) {
+    const fd = state.flagData;
+    if (!state.flags || !fd || !state.data || fd.n !== state.data.n || !f) return -1;
+    return fd.epochs.findIndex((e) => e.epoch === f.meta.epoch);
+  }
+
+  /* Names of the flags in a bit mask; trouble flags first, informative ones only if asked for. */
+  function flagList(bits, withInfo) {
+    const fd = state.flagData, trouble = [], info = [];
+    Object.keys(fd.names).forEach((b) => {
+      if (!(bits >> Number(b) & 1)) return;
+      const entry = { name: fd.names[b][0], about: fd.names[b][1], info: fd.info_bits.indexOf(Number(b)) >= 0 };
+      (entry.info ? info : trouble).push(entry);
+    });
+    return withInfo ? trouble.concat(info) : trouble;
+  }
+
+  /* Pink tint over the pixels SPHEREx flagged in a good share of the exposures behind the frame. */
+  function drawFlags(ctx, W, f) {
+    const idx = flagFrame(f);
+    if (idx < 0) return;
+    const fd = state.flagData, n = fd.n, size = n * n, key = fd.key + '|' + idx;
+    if (key !== flagCanvasKey) {
+      flagCanvas.width = n;
+      flagCanvas.height = n;
+      const fctx = flagCanvas.getContext('2d'), img = fctx.createImageData(n, n), out = img.data;
+      const limit = Math.round(255 * fd.common_share), base = idx * size;
+      for (let i = 0, j = 0; i < size; i++, j += 4) {
+        const v = fd.fraction[base + i];
+        if (v < limit) continue;
+        out[j] = 255; out[j + 1] = 60; out[j + 2] = 120;
+        out[j + 3] = Math.round(70 + 110 * (v - limit) / (255 - limit));
+      }
+      fctx.putImageData(img, 0, 0);
+      flagCanvasKey = key;
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(flagCanvas, 0, 0, W, W);
+  }
+
+  /* Describe the flags under the pointer. */
+  function flagHover(x, y, f) {
+    const idx = flagFrame(f);
+    if (idx < 0) return '';
+    const fd = state.flagData, at = idx * fd.n * fd.n + y * fd.n + x;
+    const names = flagList(fd.common[at], false).map((e) => e.name);
+    if (!names.length) return '';
+    return '  \u00b7  flags: ' + names.join(', ') + ' (' + Math.round(100 * fd.fraction[at] / 255) + '% of exposures flagged)';
+  }
+
+  /* Table of the exposures stacked into the frame on screen. */
+  function renderExposures() {
+    const wrap = $('exposures-wrap'), fd = state.flagData, f = state.shown[state.frame];
+    if (!state.flags || !fd || !f) {
+      wrap.hidden = true;
+      exposureKey = '';
+      return;
+    }
+    const key = fd.key + '|' + f.meta.epoch;
+    if (key === exposureKey) return;
+    exposureKey = key;
+    const rows = fd.exposures.filter((e) => f.meta.epoch === -1 || e.epoch === f.meta.epoch);
+    const flagged = rows.filter((e) => flagList(e.flags, false).length).length;
+    wrap.hidden = false;
+    $('exposures-note').textContent = rows.length + (rows.length === 1 ? ' exposure makes' : ' exposures make') +
+      ' up this frame; ' + (flagged ? flagged + ' of them carry' : 'none of them carries') +
+      ' a trouble flag at the centre of the field. Each exposure saw the centre at the wavelength shown.';
+    const body = rows.map((e) => {
+      const chips = flagList(e.flags, true).map((c) =>
+        '<span class="flag' + (c.info ? ' info' : '') + '" title="' + esc(c.about) + '">' + esc(c.name) + '</span>').join('');
+      return '<tr><td>' + esc(e.time) + '</td><td>D' + e.band + '</td><td>' + e.wavelength.toFixed(3) + ' \u00b5m</td><td>' +
+        (chips || '<span class="flag info">none</span>') + '</td><td><a href="' + esc(e.url) +
+        '" target="_blank" rel="noopener" title="Open the full SPHEREx image at IRSA (about 65 MB)">' + esc(e.uid) + '</a></td></tr>';
+    }).join('');
+    $('exposures').innerHTML = '<table><thead><tr><th>Taken (UTC)</th><th>Detector</th><th>Wavelength at the centre</th>' +
+      '<th>Flags within 12\u2033 of the centre</th><th>SPHEREx image</th></tr></thead><tbody>' + body + '</tbody></table>';
+  }
+
+  // ---------------------------------------------------------------- Gaia overlay
+
+  function setGaiaNote(text) {
+    const el = $('gaia-note');
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  /* Fetch the Gaia DR3 stars around the field (once per field) while the overlay is on. */
+  function loadGaia() {
+    const token = ++gaiaToken;
+    if (!state.gaia || state.ra === null) {
+      state.gaiaData = null;
+      setGaiaNote('');
+      renderFacts();
+      draw();
+      return;
+    }
+    const key = [state.ra.toFixed(5), state.dec.toFixed(5), state.fov].join('|');
+    const done = (g) => {
+      state.gaiaData = g;
+      setGaiaNote(GAIA_HINT + (g.truncated ? ' Only the ' + g.sources.length + ' brightest stars are marked.' : ''));
+      renderFacts();
+      draw();
+    };
+    if (gaiaMemo.has(key)) { done(gaiaMemo.get(key)); return; }
+    state.gaiaData = null;
+    setGaiaNote('Looking up Gaia stars…');
+    draw();
+    getJSON('/api/gaia?ra=' + state.ra + '&dec=' + state.dec + '&fov=' + state.fov).then((g) => {
+      gaiaMemo.set(key, g);
+      if (token === gaiaToken) done(g);
+    }).catch((err) => {
+      if (token === gaiaToken) setGaiaNote('Gaia stars could not be loaded. ' + explain(err));
+    });
+  }
+
+  /* Gaia stars that fall inside the frame, moved to the date of that frame. */
+  function gaiaInFrame(f) {
+    const d = state.data, out = [];
+    if (!d || !state.gaiaData || !f) return out;
+    const g = geometry(d), year = yearOf(f.meta.mjd), epoch = state.gaiaData.epoch;
+    state.gaiaData.sources.forEach((src) => {
+      const pmra = src[3] || 0, pmdec = src[4] || 0;
+      const p = propagate({ ra: src[1], dec: src[2], epoch: epoch, pmra: pmra, pmdec: pmdec }, year);
+      const q = skyToPixel(p.ra, p.dec, g);
+      if (insideFrame(q, d.n)) {
+        out.push({ x: q.x, y: q.y, src: src, pmra: pmra, pmdec: pmdec, pm: Math.hypot(pmra, pmdec) });
+      }
+    });
+    return out;
+  }
+
+  function drawGaia(ctx, f, s, dpr) {
+    if (!state.gaia || !state.gaiaData) return;
+    const scale = state.data.scale;
+    gaiaInFrame(f).forEach((q) => {
+      const cx = (q.x + 0.5) * s, cy = (q.y + 0.5) * s;
+      const fast = q.pm >= FAST_MOVER;
+      const mag = q.src[6] === null ? 18 : q.src[6];
+      const r = (fast ? 10 : clamp(9 - 0.55 * (mag - 8), 3.5, 9)) * dpr;
+      ctx.lineWidth = (fast ? 2 : 1.2) * dpr;
+      // fainter stars get fainter circles, so a crowded field stays readable
+      ctx.strokeStyle = fast ? '#ff7ad9' : 'rgba(111, 214, 255, ' + clamp(1.25 - 0.06 * (mag - 8), 0.4, 0.95).toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      ctx.stroke();
+      if (!fast) return;
+
+      // Arrow to where the star will be in ARROW_YEARS (east is left, north is up).
+      const dx = -q.pmra * ARROW_YEARS / 1000 / scale * s, dy = -q.pmdec * ARROW_YEARS / 1000 / scale * s;
+      const len = Math.hypot(dx, dy);
+      let labelX = cx + r + 4 * dpr, labelY = cy - r;      // beside the circle unless there is an arrow
+      if (len > r + 6 * dpr) {
+        const ux = dx / len, uy = dy / len, ex = cx + dx, ey = cy + dy, head = 7 * dpr;
+        labelX = ex + 8 * dpr;
+        labelY = ey + 6 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(cx + ux * r, cy + uy * r);
+        ctx.lineTo(ex, ey);
+        ctx.moveTo(ex + head * (-ux * 0.87 + uy * 0.5), ey + head * (-ux * 0.5 - uy * 0.87));
+        ctx.lineTo(ex, ey);
+        ctx.lineTo(ex + head * (-ux * 0.87 - uy * 0.5), ey + head * (ux * 0.5 - uy * 0.87));
+        ctx.stroke();
+      }
+      ctx.font = '600 ' + Math.round(11.5 * dpr) + 'px system-ui, sans-serif';
+      ctx.lineWidth = 3 * dpr;
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillStyle = '#ff9be3';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      outlined(ctx, (q.pm / 1000).toFixed(2) + '″/yr', labelX, labelY);
+    });
+  }
+
+  /* Describe the Gaia star under the pointer, if there is one. */
+  function gaiaHover(x, y, f) {
+    if (!state.gaia || !state.gaiaData) return '';
+    const d = state.data;
+    let best = null, reach = Math.max(1.5, 9 * d.n / canvas.clientWidth);
+    gaiaInFrame(f).forEach((q) => {
+      const dist = Math.hypot(q.x - x, q.y - y);
+      if (dist <= reach) { best = q; reach = dist; }
+    });
+    if (!best) return '';
+    const mag = best.src[6], parallax = best.src[5];
+    let text = '  ·  Gaia star';
+    if (mag !== null) text += ', G = ' + mag.toFixed(1);
+    if (best.pm >= 1) {
+      text += ', moving ' + (best.pm >= 1000 ? (best.pm / 1000).toFixed(2) + '″' : best.pm.toFixed(0) + ' mas') + ' per year';
+    }
+    if (parallax && parallax > 0.5) text += ', ' + Math.round(3261.6 / parallax).toLocaleString('en-US') + ' light-years away';
+    return text;
+  }
+
   function overlays(ctx, W, dpr, f) {
     const d = state.data, g = geometry(d), s = W / d.n;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    drawGaia(ctx, f, s, dpr);
+    drawSpecMarker(ctx, f, g, s, dpr);
 
     if (state.marks) {
       let p = { x: g.c, y: g.c };
@@ -553,11 +1105,13 @@
       ctx.imageSmoothingEnabled = state.interp;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(off, 0, 0, W, W);
+      drawFlags(ctx, W, f);
       overlays(ctx, W, dpr, f);
     }
     markTimeline();
     markTree();
     syncSky();
+    renderExposures();
     if (!hovering) defaultReadout();
   }
 
@@ -710,6 +1264,11 @@
       rows.push(['Exposures used', d.n_used + ' of ' + d.n_found]);
       rows.push(['Epochs', String(d.n_frames)]);
     }
+    if (state.gaia && state.gaiaData && state.shown.length) {
+      const stars = gaiaInFrame(state.shown[0]);
+      const fast = stars.filter((q) => q.pm >= FAST_MOVER).length;
+      rows.push(['Gaia stars in field', stars.length + (fast ? ' (' + fast + ' fast-moving)' : '')]);
+    }
     if (s) {
       rows.push(['Images of this spot', String(s.n_images)]);
       if (s.latest_date) rows.push(['Newest image', s.latest_date]);
@@ -772,6 +1331,8 @@
     $('invert').checked = state.invert;
     $('interp').checked = state.interp;
     $('marks').checked = state.marks;
+    $('gaia').checked = state.gaia;
+    $('flags').checked = state.flags;
     $('play').textContent = state.playing ? 'Pause' : 'Play';
   }
 
@@ -794,7 +1355,10 @@
       if (k !== 'fov' && k !== 'bands' && state[k] !== DEFAULTS[k]) p.set(k, state[k]);
     });
     if (state.invert) p.set('invert', '1');
-    ['api', 'embed'].forEach((k) => { if (query.get(k)) p.set(k, query.get(k)); });
+    if (state.gaia) p.set('gaia', '1');
+    if (state.flags) p.set('flags', '1');
+    if (spec) p.set('spec', spec.moving ? 'target' : spec.ra.toFixed(5) + ',' + spec.dec.toFixed(5));
+    ['api', 'embed', 'demo'].forEach((k) => { if (query.get(k)) p.set(k, query.get(k)); });
     try {
       history.replaceState(null, '', location.pathname + '?' + p.toString());
     } catch (e) { /* not allowed for some file:// pages; the view still works */ }
@@ -916,6 +1480,8 @@
     $('invert').addEventListener('change', () => { state.invert = $('invert').checked; syncUrl(); draw(); });
     $('interp').addEventListener('change', () => { state.interp = $('interp').checked; draw(); });
     $('marks').addEventListener('change', () => { state.marks = $('marks').checked; draw(); });
+    $('gaia').addEventListener('change', () => { state.gaia = $('gaia').checked; syncUrl(); loadGaia(); });
+    $('flags').addEventListener('change', () => { state.flags = $('flags').checked; syncUrl(); loadFlags(); });
 
     $('play').addEventListener('click', () => setPlaying(!state.playing));
     $('prev').addEventListener('click', () => step(-1));
@@ -929,6 +1495,8 @@
       else if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
       else if (ev.key >= '1' && ev.key <= '6') setBands(ev.key);
       else if (ev.key === 'd' || ev.key === 'D') setMode(state.mode === 'diff' ? 'blink' : 'diff');
+      else if (ev.key === 'g' || ev.key === 'G') { state.gaia = !state.gaia; syncControls(); syncUrl(); loadGaia(); }
+      else if (ev.key === 'f' || ev.key === 'F') { state.flags = !state.flags; syncControls(); syncUrl(); loadFlags(); }
     });
 
     canvas.addEventListener('mousemove', (ev) => {
@@ -944,13 +1512,50 @@
       const v = f.px[y * d.n + x];
       $('readout').textContent = fmtRa(pos.ra) + '  ' + fmtDec(pos.dec) + '  ·  ' +
         (v !== v ? 'no data' : !isFinite(v) ? 'saturated'
-          : v.toFixed(3) + ' MJy/sr' + (f.kind === 'diff' ? ' (difference)' : ''));
+          : v.toFixed(3) + ' MJy/sr' + (f.kind === 'diff' ? ' (difference)' : '')) +
+        gaiaHover(x, y, f) + flagHover(x, y, f);
     });
     canvas.addEventListener('mouseleave', () => {
       hovering = false;
       if (sky) sky.setCursor(null);
       defaultReadout();
     });
+    canvas.addEventListener('click', (ev) => {
+      const d = state.data;
+      if (!d) return;
+      const r = canvas.getBoundingClientRect();
+      const x = Math.floor((ev.clientX - r.left) / r.width * d.n);
+      const y = Math.floor((ev.clientY - r.top) / r.height * d.n);
+      if (x >= 0 && y >= 0 && x < d.n && y < d.n) pickSpectrum(x, y);
+    });
+    if (plot) {
+      plot.init($('spec'), $('spec-legend'));
+      $('spec-views').addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button');
+        if (!btn) return;
+        specView = btn.dataset.view;
+        plot.setView(specView);
+        syncSpecControls();
+        if (spec && spec.data) setSpecStatus(specSummary());
+      });
+      $('spec-kind').addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button');
+        if (!btn || !spec || !spec.data) return;
+        specKind = btn.dataset.kind;
+        showSpectrum();
+      });
+      $('spec-log').addEventListener('change', () => plot.setLog($('spec-log').checked));
+      $('spec-target').addEventListener('click', () => {
+        if (state.ra === null) return;
+        const f = state.shown[state.frame];
+        const now = state.track && f && f.meta.mjd ? propagate(state.track, yearOf(f.meta.mjd)) : state;
+        measureSpectrum({ ra: state.ra, dec: state.dec }, !!state.track, false, saturatedAt(now.ra, now.dec));
+      });
+      syncSpecControls();
+      clearSpectrum();
+    } else {
+      $('spectrum-wrap').hidden = true;
+    }
     window.addEventListener('resize', draw);
   }
 
@@ -968,6 +1573,8 @@
     state.black = num('black', DEFAULTS.black, 0, 10);
     state.smooth = num('smooth', DEFAULTS.smooth, 0, 2);
     state.invert = query.get('invert') === '1';
+    state.gaia = query.get('gaia') === '1';
+    state.flags = query.get('flags') === '1';
     if (query.get('embed') === '1') document.body.classList.add('embed');
     if (query.get('play') === '0') state.playing = false;
     if (/^\d+$/.test(query.get('frame') || '')) startFrame = Number(query.get('frame'));
@@ -992,9 +1599,28 @@
       syncControls();
       setMessage('Enter coordinates or an object name to start.');
     }
+
+    // ?spec=target or ?spec=ra,dec reopens a spectrum
+    const wanted = query.get('spec');
+    if (wanted && state.ra !== null) {
+      const c = wanted.split(',').map(Number);
+      if (wanted === 'target') measureSpectrum({ ra: state.ra, dec: state.dec }, !!state.track, true);
+      else if (c.length === 2 && c.every(Number.isFinite)) measureSpectrum({ ra: c[0], dec: c[1] }, false, true);
+    }
   }
 
   buildControls();
   initSky();
-  initFromUrl();
+  if (demo) {
+    showDemoBanner();
+    initFromUrl();
+  } else {
+    // Is the server there? If not, fall back to the recorded example targets.
+    const probe = new AbortController();
+    const giveUp = setTimeout(() => probe.abort(), 2500);
+    fetch(API + '/api/health', { signal: probe.signal })
+      .then((r) => { if (!r.ok) throw new Error('no server'); })
+      .catch(() => { demo = true; showDemoBanner(); })
+      .finally(() => { clearTimeout(giveUp); initFromUrl(); });
+  }
 })();

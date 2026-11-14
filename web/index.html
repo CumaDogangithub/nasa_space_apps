@@ -39,6 +39,8 @@
     <div class="examples" id="examples" aria-label="Example targets"></div>
   </header>
 
+  <div class="demo-banner" id="demo-banner" hidden></div>
+
   <main class="layout">
     <section class="sky" id="sky">
       <div class="sky-map" id="skymap"></div>
@@ -122,7 +124,11 @@
           <label><input id="invert" type="checkbox"> Invert</label>
           <label><input id="interp" type="checkbox"> Soft pixels</label>
           <label><input id="marks" type="checkbox"> Markers</label>
+          <label title="Mark the stars the Gaia mission already knows (key: G)"><input id="gaia" type="checkbox"> Gaia stars</label>
+          <label title="Show where SPHEREx itself flagged the data as doubtful (key: F)"><input id="flags" type="checkbox"> Flags</label>
         </div>
+        <p class="hint" id="gaia-note" hidden></p>
+        <p class="hint" id="flags-note" hidden></p>
       </section>
 
       <section>
@@ -131,6 +137,37 @@
       </section>
     </aside>
   </main>
+
+  <section class="spectrum-wrap" id="spectrum-wrap">
+    <div class="spectrum-head">
+      <h2>Spectrum and light curve</h2>
+      <div class="segmented" id="spec-kind" hidden>
+        <button type="button" data-kind="core" title="Brightness of the star inside the measuring circle">Star itself</button>
+        <button type="button" data-kind="ring" title="For saturated stars: the light in a ring around the star">Ring around it</button>
+      </div>
+      <div class="segmented" id="spec-views">
+        <button type="button" data-view="spectrum">Spectrum</button>
+        <button type="button" data-view="curve">Light curve</button>
+      </div>
+      <label class="check"><input id="spec-log" type="checkbox"> Log scale</label>
+      <button type="button" class="ghost" id="spec-target">Measure the target</button>
+    </div>
+    <p class="hint" id="spec-status"></p>
+    <div class="spectrum-plot">
+      <canvas id="spec" aria-label="Spectrum of the selected source"></canvas>
+      <div class="progress" id="spec-progress" hidden>
+        <div class="track"><div class="bar" id="spec-bar"></div></div>
+        <span id="spec-progress-label"></span>
+      </div>
+    </div>
+    <div class="spec-legend" id="spec-legend"></div>
+  </section>
+
+  <section class="exposures-wrap" id="exposures-wrap" hidden>
+    <h2>Exposures behind this frame</h2>
+    <p class="hint" id="exposures-note"></p>
+    <div class="tree" id="exposures"></div>
+  </section>
 
   <section class="tree-wrap" id="tree-wrap" hidden>
     <h2>What SPHEREx has for this spot</h2>
@@ -141,11 +178,12 @@
   <footer class="foot">
     <p>Images: NASA SPHEREx mission (JPL/Caltech), served by the NASA/IPAC Infrared Science Archive. Positions: ESA Gaia DR3 and SIMBAD.
        Sky map: Aladin Lite (CDS, Strasbourg). Built for the NASA Space Apps Challenge.</p>
-    <p class="keys">Keys: <kbd>space</kbd> play/pause &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &middot; <kbd>1</kbd>&ndash;<kbd>6</kbd> detector &middot; <kbd>D</kbd> difference</p>
+    <p class="keys">Keys: <kbd>space</kbd> play/pause &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &middot; <kbd>1</kbd>&ndash;<kbd>6</kbd> detector &middot; <kbd>D</kbd> difference &middot; <kbd>G</kbd> Gaia stars &middot; <kbd>F</kbd> flags &middot; click the image for a spectrum</p>
   </footer>
 
   <script src="js/targets.js"></script>
   <script src="js/skymap.js"></script>
+  <script src="js/spectrum.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

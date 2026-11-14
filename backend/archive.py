@@ -347,3 +347,134 @@ def read_pixels(plan: CutPlan) -> np.ndarray:
 
 def read_pixels_many(plans: Iterable[CutPlan], progress: Progress | None = None) -> list[np.ndarray | None]:
     return _run_parallel(read_pixels, list(plans), "pixels", progress)
+
+
+# --------------------------------------------------------------------------
+# Quality flags
+# --------------------------------------------------------------------------
+#
+# Every spectral image carries a FLAGS extension: a 32-bit mask per pixel that
+# records cosmic-ray hits, saturation, persistence, ghosts of bright stars and
+# so on. Unlike the image it is stored compressed, as a FITS tile-compressed
+# image with one Rice-compressed tile per detector row. So a window is read in
+# two steps: the extension header with its tile directory (cached per file),
+# then just the compressed bytes of the rows needed, which are decoded here.
+
+IMAGE_BYTES = _NPIX * _NPIX * 4
+FLAGS_HEAD_GUESS = 48 * 1024           # header (about 17 kB) plus tile directory (16 kB)
+
+# Names and meanings of the flag bits, as written in the files (filled in from
+# the first FLAGS header read; these are the DR1 definitions).
+flag_names: dict[int, tuple[str, str]] = {
+    0: ("TRANSIENT", "Transient detected during SUR"),
+    1: ("OVERFLOW", "Overflow detected during SUR"),
+    2: ("SUR_ERROR", "Error in onboard processing"),
+    6: ("NONFUNC", "Permanently unusable"),
+    7: ("DICHROIC", "Low efficiency due to dichroic"),
+    9: ("MISSING_DATA", "Onboard data lost"),
+    10: ("HOT", "Hot pixel"),
+    11: ("COLD", "Anomalously low signal"),
+    12: ("FULLSAMPLE", "Pixel full sample history is available"),
+    14: ("PHANMISS", "Phantom correction was not applied"),
+    15: ("NONLINEAR", "Nonlinearity correction cannot be applied reliably"),
+    17: ("PERSIST", "Persistent charge above threshold"),
+    19: ("OUTLIER", "Pixel flagged by Detect Outliers"),
+    20: ("CROSSTALK", "Pixel affected by crosstalk"),
+    21: ("SOURCE", "Pixel mapped to a known source"),
+    22: ("GHOST", "Affected by a bright source inside the exposure"),
+    23: ("GHOST_FPA", "Affected by a bright source on another detector"),
+    24: ("GHOST_EXT", "Pixel affected by a bright source outside FOV"),
+    25: ("STREAK", "Pixel affected by a streak"),
+    26: ("BLOOM", "Pixel part of a bloom artifact"),
+    27: ("SNOWBALL", "Pixel part of a snowball artifact"),
+    28: ("HALO", "Pixel part of a transient halo"),
+}
+
+
+def _rice_codec(blocksize: int, bytepix: int, tilesize: int):
+    try:
+        from astropy.io.fits.hdu.compressed import _codecs as codecs
+    except ImportError:                                  # older astropy
+        from astropy.io.fits._tiled_compression import codecs
+    return codecs.Rice1(blocksize=blocksize, bytepix=bytepix, tilesize=tilesize)
+
+
+def _flags_directory_path(exp: Exposure) -> Path:
+    digest = hashlib.sha1(exp.key.encode()).hexdigest()[:16]
+    return config.CACHE_DIR / "fhdr" / f"{digest}.bin"
+
+
+def load_flags_directory(plan: CutPlan) -> dict:
+    """Header and tile directory of one file's FLAGS extension (cached on disk).
+
+    Returns the absolute byte offset of the compressed data ("heap"), the
+    directory as an array of (length, offset) per detector row, and the codec
+    parameters.
+    """
+    start = plan.data_offset + IMAGE_BYTES               # FLAGS follows the IMAGE pixels
+    path = _flags_directory_path(plan.exp)
+    if path.exists():
+        buf = path.read_bytes()
+    else:
+        buf = get_range(plan.exp.s3_url, start, start + FLAGS_HEAD_GUESS - 1)
+    end = _find_end(buf, 0)
+    if end < 0:
+        raise RuntimeError(f"no FLAGS header found in {plan.exp.key}")
+    header_len = _pad(end + 80)
+    header = fits.Header.fromstring(buf[: end + 80].decode("ascii", "replace"))
+    if header.get("ZCMPTYPE") != "RICE_1" or header.get("ZTILE2", 1) != 1 or header.get("ZTILE1") != _NPIX:
+        raise RuntimeError(f"unexpected FLAGS layout in {plan.exp.key}: "
+                           f"{header.get('ZCMPTYPE')} tiles {header.get('ZTILE1')}x{header.get('ZTILE2')}")
+    row_bytes, n_rows = int(header["NAXIS1"]), int(header["NAXIS2"])
+    need = header_len + row_bytes * n_rows
+    if len(buf) < need:
+        buf += get_range(plan.exp.s3_url, start + len(buf), start + need - 1)
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".{threading.get_ident()}.tmp")
+        tmp.write_bytes(buf[:need])
+        tmp.replace(path)
+    for key in header:                                   # keep the bit names as the files define them
+        if key.startswith("MSKN"):
+            bit = int(key[4:])
+            flag_names[bit] = (str(header[key]).strip(), str(header.get(f"MSKD{bit:04d}", "")).strip())
+    dtype = ">i8" if "Q" in str(header.get("TFORM1", "")) else ">i4"
+    directory = np.frombuffer(buf[header_len:need], dtype=dtype).reshape(n_rows, 2)
+    return {
+        "heap": start + header_len + int(header.get("THEAP", row_bytes * n_rows)),
+        "directory": directory,
+        "blocksize": int(header.get("ZVAL1", 32)),
+        "bytepix": int(header.get("ZVAL2", 4)),
+    }
+
+
+def _flags_path(plan: CutPlan) -> Path:
+    tag = f"{plan.exp.key}|{plan.x0}|{plan.x1}|{plan.y0}|{plan.y1}"
+    return config.CACHE_DIR / "flg" / f"{hashlib.sha1(tag.encode()).hexdigest()[:20]}.npy"
+
+
+def read_flags(plan: CutPlan) -> np.ndarray:
+    """FLAGS bit mask of the planned window as int32 [y, x] (cached on disk)."""
+    path = _flags_path(plan)
+    if path.exists():
+        return np.load(path)
+    info = load_flags_directory(plan)
+    directory = info["directory"]
+    first = int(directory[plan.y0, 1])
+    last = int(directory[plan.y1 - 1, 1] + directory[plan.y1 - 1, 0])
+    blob = get_range(plan.exp.s3_url, info["heap"] + first, info["heap"] + last - 1)
+    codec = _rice_codec(info["blocksize"], info["bytepix"], _NPIX)
+    out = np.empty(plan.shape, dtype=np.int32)
+    for i, y in enumerate(range(plan.y0, plan.y1)):
+        a, n = int(directory[y, 1]) - first, int(directory[y, 0])
+        row = np.asarray(codec.decode(np.frombuffer(blob[a:a + n], dtype=np.uint8)))
+        out[i] = row.astype(np.int32)[plan.x0:plan.x1]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f".{threading.get_ident()}.tmp.npy")
+    np.save(tmp, out)
+    tmp.replace(path)
+    return out
+
+
+def read_flags_many(plans: Iterable[CutPlan], progress: Progress | None = None) -> list[np.ndarray | None]:
+    return _run_parallel(read_flags, list(plans), "flags", progress)

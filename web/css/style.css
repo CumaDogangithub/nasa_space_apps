@@ -81,6 +81,20 @@ select {
 .chip:hover { border-color: var(--accent); }
 .chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
+/* ---------- offline demo notice ---------- */
+.demo-banner {
+  max-width: 1468px;
+  margin: 6px auto 0;
+  padding: 8px 14px;
+  border: 1px solid #5a4a1c;
+  border-radius: var(--radius);
+  background: rgba(255, 180, 84, 0.1);
+  color: #ffd98a;
+  font-size: 13px;
+}
+@media (max-width: 1500px) { .demo-banner { margin-left: 16px; margin-right: 16px; } }
+body.embed .demo-banner { display: none; }
+
 /* ---------- layout ---------- */
 .layout {
   max-width: 1500px;
@@ -298,6 +312,59 @@ h2 { font-size: 12px; font-weight: 650; letter-spacing: 0.8px; text-transform: u
 .facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* ---------- spectrum ---------- */
+.spectrum-wrap { max-width: 1500px; margin: 10px auto 0; padding: 0 16px; }
+.spectrum-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.spectrum-head h2 { margin: 0 auto 0 0; }
+.spectrum-head .segmented { grid-template-columns: repeat(2, auto); }
+.spectrum-head .segmented button { padding: 6px 14px; }
+.spectrum-plot {
+  position: relative;
+  height: 330px;
+  margin-top: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.spectrum-plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.spec-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.spec-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.spec-chip i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.spec-chip small { color: var(--muted); }
+.spec-chip.off { opacity: 0.4; text-decoration: line-through; }
+body.embed .spectrum-wrap { display: none; }
+
+/* ---------- exposures and flags ---------- */
+.exposures-wrap { max-width: 1500px; margin: 10px auto 0; padding: 0 16px; }
+.exposures-wrap h2 { margin-bottom: 4px; }
+.exposures-wrap .tree { max-height: 340px; overflow-y: auto; }
+.exposures-wrap .tree th, .exposures-wrap .tree td { text-align: left; }
+.exposures-wrap .tree thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.exposures-wrap .tree tbody tr { cursor: default; }
+.exposures-wrap a { color: var(--accent); text-decoration: none; }
+.exposures-wrap a:hover { text-decoration: underline; }
+.flag {
+  display: inline-block;
+  padding: 0 7px;
+  margin: 1px 4px 1px 0;
+  border: 1px solid #7a2f4d;
+  border-radius: 999px;
+  color: #ff9fbf;
+  background: rgba(255, 60, 120, 0.12);
+  font-size: 11.5px;
+}
+.flag.info { border-color: var(--line); color: var(--muted); background: transparent; }
+body.embed .exposures-wrap { display: none; }
 
 /* ---------- tree ---------- */
 .tree-wrap { max-width: 1500px; margin: 8px auto 0; padding: 0 16px; }

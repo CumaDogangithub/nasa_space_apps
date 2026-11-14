@@ -21,6 +21,20 @@ Built for the NASA Space Apps Challenge.
   **Blink map centre** blinks whatever you find while browsing the sky.
   **Field** zooms the map to exactly the area of the blink image, pointing at either picture marks
   the same spot on the other, and **Full screen** spreads the map over the whole window.
+- **Gaia overlay**: circles mark the stars the Gaia mission already knows, moved to the date of each
+  frame. Fast-moving stars get an arrow showing where they will be in five years, and pointing at a
+  star shows its brightness, motion and distance. A moving object with no circle is not in Gaia,
+  which is exactly what a new nearby brown dwarf would look like.
+- **Spectrum and light curve on a click**: click a star in the blink image and it is measured in every
+  SPHEREx exposure. Each exposure sees it at a different wavelength, so the points form a spectrum from
+  0.75 to 5 µm, coloured by epoch; the light-curve view shows how each detector's brightness changed
+  from visit to visit, relative to the star's own average at the same wavelength. Stars too bright for
+  the detector are measured in a ring around their saturated core instead.
+- **Quality flags and exposure list**: SPHEREx marks pixels it does not trust (cosmic-ray hits,
+  saturation, leftover charge, ghosts of bright stars and more). Switching on **Flags** tints the
+  pixels flagged in at least a quarter of the exposures behind a frame, names the flags under the
+  pointer, and lists every exposure of the frame with its time, the wavelength it saw at the centre
+  of the field, its flags there and a link to the original image.
 - **Selectable field of view** from 1′ to 30′.
 - **Coordinates or names**: decimal degrees, `08h55m10.8s -07d14m42.5s`, or a name looked up in SIMBAD.
   For objects with a known proper motion the field is centred where the object is *now*, and a marker
@@ -28,6 +42,13 @@ Built for the NASA Space Apps Challenge.
 - **Shareable, embeddable links**: the whole view is in the URL.
 - **Always current**: nothing is pre-computed. Every query asks the archive what exists, so new
   weekly SPHEREx releases show up without any change to the tool.
+
+## Just want a look?
+
+Open `web/index.html` in a browser. Without the server the page shows the five example targets from
+recorded data (every detector, the Gaia stars, the target's spectrum and the quality flags of the
+default view), so nothing needs to be installed. A banner says that it is running offline. Exploring
+any other position needs the server below.
 
 ## Run it
 
@@ -57,6 +78,9 @@ many detectors are read. Results are cached in `cache/`, so repeat views are ins
 | `ref` | What to subtract in difference mode: `auto`, `first`, `prev`, `mean`, or `e<N>` for epoch N |
 | `speed` | Blink interval in milliseconds |
 | `white`, `black`, `smooth`, `invert` | Display range (in units of the image noise), smoothing in pixels, inverted colours |
+| `gaia=1` | Show the Gaia DR3 overlay |
+| `flags=1` | Show the SPHEREx quality flags and the exposure list |
+| `spec` | Open a spectrum: `target` for the object itself, or `ra,dec` in degrees for any spot |
 | `play=0`, `frame=N` | Start paused, start on frame N |
 | `track` | `ra,dec,epoch,pmra,pmdec` of a moving object, to mark its predicted position |
 | `embed=1` | Viewer only, for use in an `<iframe>` |
@@ -82,6 +106,37 @@ browser (plain HTML/JS)  ──►  backend (FastAPI + astropy)  ──►  IRSA
 5. **Display.** The browser receives raw float frames and does stretching, blinking and subtraction
    itself, so the controls respond instantly.
 
+### Spectra without a spectrograph
+
+SPHEREx has no prism: a filter whose colour changes smoothly across each detector does the work, so the
+wavelength a star is seen at depends on where it lands. The telescope steps across the sky between
+exposures, and the star lands somewhere new each time. For a clicked position the backend therefore:
+
+1. reads a 17 × 17 pixel window around it from every exposure of all six detectors;
+2. measures the brightness in a circle of 12″ radius, with the sky level taken from a ring around it;
+3. looks up the wavelength of the landing spot in the detector's own 9 × 9 lookup table
+   (`backend/data/wavelength_tables.json`, extracted once from the files by `scripts/build_wavelength_tables.py`).
+
+Stars too bright for the detector have a blank core. For those the light in a ring 25″–43″ from the
+centre is measured instead: it follows the star's changes but is not its total brightness. The light
+curve divides every exposure by the star's own average at the same wavelength before following it
+through time, so that a red star does not seem to vary just because different visits sampled
+different wavelengths.
+
+**Is the brightness scale right?** `scripts/check_flux.py` measures ordinary stars the same way and
+compares them with the 2MASS catalogue. For five stars near RW Aurigae the ratio SPHEREx / 2MASS was
+0.94 in J, 1.01 in H and 0.97 in Ks. These are quick-look values: neighbours inside the circle add to
+the result, and no correction is made for the light that falls outside it.
+
+### Quality flags
+
+Each image file carries a FLAGS extension with a 32-bit mask per pixel. Unlike the image it is stored
+compressed, one Rice-compressed tile per detector row. The backend reads the extension's header and
+tile directory once per file (about 34 kB), then only the compressed bytes of the rows it needs, and
+decodes them. For a frame, a pixel is tinted when at least a quarter of its exposures carry a flag
+other than the purely informative ones (`SOURCE`, `FULLSAMPLE`). The flag names and meanings shown are
+read from the files themselves.
+
 ### Are the frames in the right place?
 
 `scripts/check_astrometry.py` compares the blink frames with Gaia DR3: it predicts where each Gaia star
@@ -95,8 +150,23 @@ SPHEREx pixel (6.15″). The sky map draws the blink field from the same coordin
 |---|---|
 | `GET /api/search?ra=&dec=` | Epochs, exposure counts per detector and exposure footprints for a position |
 | `GET /api/frames?ra=&dec=&fov=&bands=` | Aligned epoch frames (binary: JSON header + float32 pixels) |
+| `GET /api/flags?ra=&dec=&fov=&bands=` | Quality-flag maps for the blink frames and one row per exposure (binary: JSON header + masks) |
+| `GET /api/spectrum?ra=&dec=` | One sky position measured in every exposure: wavelength, flux, date, detector and epoch per point |
+| `GET /api/gaia?ra=&dec=&fov=` | Gaia DR3 stars in and around a field (position, proper motion, parallax, magnitude) |
 | `GET /api/resolve?name=` | Position, proper motion and parallax of a named object (SIMBAD) |
 | `GET /api/health` | Configured data collections and limits |
+
+## Offline demo data
+
+`web/demo/<target>.js` holds, for each example target, exactly what the server would answer (3.9 MB
+in total). The page uses these files when it cannot reach the server, or when `?demo=1` is added to
+the address. After a new data release, refresh them with
+
+```bash
+.venv/Scripts/python scripts/build_demo.py
+```
+
+which takes a few minutes the first time because every detector of every target is read.
 
 ## Adding a new data release
 
@@ -108,14 +178,24 @@ existing collection need no change at all.
 ```
 backend/    archive.py   image search and S3 range reads
             pipeline.py  alignment, epochs, stacking, cache
+            spectra.py   photometry and wavelength of each exposure: spectra and light curves
+            flags.py     quality-flag maps and the exposure list
+            remote.py    reads parts of a remote FITS file through byte ranges
+            catalogs.py  Gaia DR3 stars for the overlay
+            data/        wavelength lookup tables of the six detectors
             app.py       web API, serves the front end
             releases.json
 web/        index.html, css/        the page (no build step)
             js/app.js    blink viewer
             js/skymap.js sky map (Aladin Lite)
+            js/spectrum.js spectrum and light-curve plot
             js/targets.js example targets
+            demo/        recorded data of the example targets, for use without the server
 scripts/    poc.py       command-line version that writes a GIF
             check_astrometry.py  compares frame positions with Gaia DR3
+            check_flux.py        compares measured brightness with 2MASS
+            build_wavelength_tables.py  extracts the detectors' wavelength tables
+            build_demo.py        records the example targets for the offline demo
 ```
 
 ## Test targets
@@ -130,9 +210,12 @@ scripts/    poc.py       command-line version that writes a GIF
 ## Status
 
 Working: search by coordinates or name, per-detector epoch stacks, blink / difference / sum, field of view,
-sky map with the 102-channel SPHEREx cube and exposure footprints, URL parameters, embed mode, disk cache.
+sky map with the 102-channel SPHEREx cube and exposure footprints, Gaia DR3 overlay, spectra and light
+curves on a click, quality flags and exposure list, URL parameters, embed mode, disk cache, and an
+offline demo of the five example targets.
 
-Planned: Gaia DR3 overlay, on-the-fly spectra, contamination flags, bundled offline data for the test targets.
+Ideas not built yet: using the quality flags to clean the spectra, labelling known asteroids, and
+reading large fields faster.
 
 ## Data and acknowledgements
 
