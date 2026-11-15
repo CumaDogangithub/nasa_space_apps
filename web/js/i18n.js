@@ -66,7 +66,7 @@
         'between exposures, so the patch is seen at a different wavelength each time. Only a few exposures of each visit are ' +
         'drawn, so that the map stays readable. “Field” zooms the map to exactly the ' +
         'area of the blink image. Point at either picture and a white cross marks the same spot on the other. ' +
-        'The slider shows the whole sky at any of SPHEREx’s 102 wavelengths; the buttons below it switch to WISE, 2MASS or visible light.',
+        'The slider shows the whole sky at any of SPHEREx’s 102 wavelengths; the menu below it switches to WISE, 2MASS or visible light.',
       'survey.spherex': 'SPHEREx all-sky (102 channels)',
       'survey.wise': 'WISE colour (3.4–22 µm)',
       'survey.twomass': '2MASS colour (1.2–2.2 µm, sharper)',
@@ -353,7 +353,7 @@
         'böylece parça her seferinde farklı bir dalga boyunda görülür. Harita okunaklı kalsın diye her dönemin pozlarından ' +
         'yalnız birkaçı çizilir. “Alan” haritayı tam olarak film görüntüsünün alanına getirir. ' +
         'İmleci resimlerden birinin üzerine getirdiğinde diğerinde beyaz bir artı aynı noktayı işaretler. ' +
-        'Kaydırıcı tüm gökyüzünü SPHEREx’in 102 dalga boyundan herhangi birinde gösterir; altındaki düğmelerle WISE, 2MASS veya görünür ışığa geçilir.',
+        'Kaydırıcı tüm gökyüzünü SPHEREx’in 102 dalga boyundan herhangi birinde gösterir; altındaki menüden WISE, 2MASS veya görünür ışığa geçilir.',
       'survey.spherex': 'SPHEREx tüm gökyüzü (102 kanal)',
       'survey.wise': 'WISE renkli (3.4–22 µm)',
       'survey.twomass': '2MASS renkli (1.2–2.2 µm, daha net)',

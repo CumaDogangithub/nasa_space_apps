@@ -1172,22 +1172,15 @@
 
   function initSky() {
     if (!sky) { document.body.classList.add('no-sky'); return; }
-    // One button per map instead of a menu: one click, and nothing that has to open first.
+    // One menu for the maps: each entry says what the map is, not only its name.
     const survey = $('sky-survey');
-    const surveyNames = { spherex: 'SPHEREx', wise: 'WISE', twomass: '2MASS', dss: 'DSS' };
     Object.keys(sky.surveys).forEach((id) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.survey = id;
-      b.textContent = surveyNames[id] || id;
-      b.title = T('survey.' + id);
-      b.classList.toggle('active', id === 'spherex');
-      survey.appendChild(b);
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = T('survey.' + id);
+      survey.appendChild(opt);
     });
-    survey.addEventListener('click', (ev) => {
-      const b = ev.target.closest('button');
-      if (b) sky.setSurvey(b.dataset.survey);
-    });
+    survey.addEventListener('change', () => sky.setSurvey(survey.value));
     $('sky-feet-note').textContent = T('sky.feet.none');
     $('sky-wave').max = String(sky.channels - 1);
     $('sky-wave').addEventListener('input', () => sky.setSlice(Number($('sky-wave').value)));
@@ -1209,7 +1202,7 @@
     });
     sky.init('#skymap', (ev) => {
       if (ev.type === 'slice') {
-        survey.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.survey === ev.survey));
+        survey.value = ev.survey;
         $('sky-wave').value = ev.slice;
         $('sky-wave').disabled = !ev.cube;
         $('sky-wave-out').textContent = ev.cube

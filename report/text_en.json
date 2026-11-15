@@ -6,6 +6,19 @@
   "event_caps": "NASA SPACE APPS CHALLENGE 2026",
   "repo": "github.com/CumaDogangithub/nasa_space_apps",
 
+  "front": {
+    "event_label": "EVENT",
+    "challenge_label": "CHALLENGE",
+    "challenge": "Planet X and SPHEREx",
+    "project_label": "PROJECT",
+    "team_label": "TEAM",
+    "members_label": "TEAM MEMBERS",
+    "members": [
+      "Cuma Doğan"
+    ],
+    "date": "14–15 November 2026"
+  },
+
   "cover": {
     "kind": "PROJECT REPORT · NOVEMBER 2026",
     "pitch": "Watch the infrared sky as a film and catch what moves or changes.",

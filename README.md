@@ -12,7 +12,7 @@ of its middle branch blinks. The page uses flat colours taken from the team's ba
 apart: blue for whatever is selected, violet for the team's name and the main button, orange for
 the field on the map, on a night that is almost black.
 
-**Project report** (7 pages): [English](SPHEREx-Blink-Tree-Report-EN.pdf) ·
+**Project report** (8 pages): [English](SPHEREx-Blink-Tree-Report-EN.pdf) ·
 [Türkçe](SPHEREx-Blink-Tree-Rapor-TR.pdf)
 
 ## What it does
@@ -26,7 +26,7 @@ the field on the map, on a night that is almost black.
 - **Sky map**: a globe of the SPHEREx all-sky survey next to the viewer. A slider steps through all
   102 wavelength channels. The map flies to each new target, marks the field being blinked and draws
   the footprints of a few SPHEREx exposures of the epoch on screen, so you can see how the telescope
-  scanned that spot. WISE, 2MASS and DSS maps are one click away for comparison, and
+  scanned that spot. WISE, 2MASS and DSS maps are in the menu under the map for comparison, and
   **Blink map centre** blinks whatever you find while browsing the sky.
   **Field** zooms the map to exactly the area of the blink image, pointing at either picture marks
   the same spot on the other, and **Full screen** spreads the map over the whole window.

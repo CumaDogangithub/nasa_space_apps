@@ -27,7 +27,25 @@
   @media screen { body { background: #4a4f5a; } .page { margin: 6mm auto; background: #fff; box-shadow: 0 2mm 8mm rgba(0, 0, 0, 0.4); } }
 
 
-  /* ---------- cover ---------- */
+  /* ---------- front cover: the event, the challenge, the project, the team ---------- */
+  .front { background: var(--navy); color: var(--night-text); }
+  .front > * { position: absolute; left: 16mm; right: 16mm; }
+  .f-body { top: 36mm; bottom: 27mm; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .f-label { margin-top: 10mm; font-size: 8.4pt; font-weight: 600; letter-spacing: 1.9pt; color: var(--violet); }
+  .f-label:first-child { margin-top: 0; }
+  .f-event { margin-top: 1.6mm; font-size: 23pt; line-height: 1.15; font-weight: 600; color: #fff; }
+  .f-challenge { margin-top: 1.4mm; font-size: 41pt; line-height: 1.08; font-weight: 700; letter-spacing: -0.9pt; color: var(--accent); }
+  .f-project { display: flex; align-items: center; gap: 4mm; margin-top: 2mm; font-size: 24pt; line-height: 1.1; font-weight: 700; color: #fff; }
+  .f-project .logo { width: 13mm; height: 13mm; flex: none; overflow: visible; }
+  .f-pitch { margin-top: 2.4mm; font-size: 11pt; line-height: 1.35; color: #cdd5e6; }
+  .f-team { margin-top: auto; display: flex; flex-direction: column; align-items: center; }
+  .f-team img { width: 68mm; height: 68mm; border-radius: 50%; }
+  .f-team .f-label { margin-top: 6mm; }
+  .f-teamname { margin-top: 1.2mm; font-size: 27pt; line-height: 1.1; font-weight: 700; color: #fff; }
+  .f-members { margin: 1.4mm 0 0; padding: 0; list-style: none; font-size: 15pt; line-height: 1.3; font-weight: 600; color: var(--night-text); }
+  .f-foot { bottom: 10mm; display: flex; justify-content: space-between; padding-top: 3mm; border-top: 0.25mm solid var(--panel-line); font-size: 8.6pt; color: var(--night-muted); }
+
+  /* ---------- title page (the page after the cover) ---------- */
   .cover { background: var(--navy); color: var(--night-text); }
   .cover > * { position: absolute; left: 16mm; right: 16mm; }
   .c-top { top: 13mm; display: flex; justify-content: space-between; font-size: 8.4pt; font-weight: 600; letter-spacing: 1.7pt; color: var(--night-muted); }
@@ -79,14 +97,14 @@
   .stats b { display: block; font-size: 14pt; line-height: 1.15; font-weight: 700; white-space: nowrap; }
   .stats span { display: block; margin-top: 0.7mm; font-size: 7.9pt; line-height: 1.3; color: var(--muted); }
 
-  /* page 2: the four boxes of the tool */
-  .hero { margin-top: 5mm; }
-  .boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-top: 4.5mm; }
+  /* page 3: the four boxes of the tool */
+  .hero { margin-top: 3.6mm; }
+  .boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-top: 3.4mm; }
   .boxes div { padding: 2.4mm 2.8mm 2.6mm; border: 0.25mm solid var(--line); border-radius: 2mm; font-size: 8.3pt; line-height: 1.36; color: var(--muted); }
   .boxes b { display: block; margin-bottom: 0.8mm; font-size: 9.4pt; color: var(--ink); }
   .boxes b i { display: inline-block; width: 4.6mm; height: 4.6mm; margin-right: 1.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 8pt; line-height: 4.6mm; text-align: center; }
 
-  /* page 3: who talks to whom */
+  /* page 4: who talks to whom */
   .flow { display: grid; grid-template-columns: 41mm 24mm 41mm 12mm 1fr; align-items: center; padding: 3.4mm 4mm; background: var(--navy); border-radius: 2.5mm; color: var(--night-text); }
   .node { padding: 2.6mm 3mm; background: var(--panel); border: 0.25mm solid var(--panel-line); border-radius: 2mm; font-size: 8.2pt; line-height: 1.36; }
   .node b { display: block; font-size: 10.4pt; color: #fff; }
@@ -106,7 +124,7 @@
   .steps li::before { content: counter(step); position: absolute; left: 0; top: 0.2mm; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 8.6pt; font-weight: 700; line-height: 5.6mm; text-align: center; }
   .steps li:last-child { padding-bottom: 0; }
 
-  /* pages 4 and 5: one block per target */
+  /* pages 5 and 6: one block per target */
   .target { margin-top: 4.2mm; padding-top: 3.4mm; border-top: 0.25mm solid var(--line); }
   .target header { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 1.2mm; }
   .target header h3 { margin: 0; font-size: 12.4pt; }
@@ -129,7 +147,7 @@
   .glance td:nth-child(2), .glance td:nth-child(3), .glance th:nth-child(2), .glance th:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
   .glance td:first-child { font-weight: 600; white-space: nowrap; }
 
-  /* page 6: the wish list */
+  /* page 7: the wish list */
   .split { display: grid; grid-template-columns: 1fr 50mm; gap: 6mm; align-items: start; }
   .wishes { font-size: 8.9pt; line-height: 1.36; }
   .wishes th, .wishes td { padding: 1.55mm 0; vertical-align: top; text-align: left; border-bottom: 0.25mm solid var(--line); }
@@ -149,7 +167,7 @@
   .cards strong { display: block; margin: 0.6mm 0 1mm; font-size: 8.6pt; color: var(--ink); }
   .note { margin-top: 3.4mm; font-size: 8.8pt; }
 
-  /* page 7 */
+  /* page 8 */
   .cards.who b { font-size: 10.6pt; white-space: normal; margin-bottom: 0.8mm; }
   .block { margin-top: 5mm; }
   .tryrun { display: grid; grid-template-columns: 1fr 42mm; gap: 7mm; align-items: start; }
@@ -173,6 +191,28 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="bt-mark"><g fill="#4c8dff"><polygon points="8.17,28.34 12.83,30.66 22.75,6.87 21.25,6.13"/><polygon points="8.68,27.64 12.32,31.36 32.09,9.6 30.91,8.4"/><polygon points="9.43,27.13 11.57,31.87 35.35,19.28 34.65,17.72"/><circle cx="10.5" cy="29.5" r="7.3"/></g><circle cx="22" cy="6.5" r="2.7" fill="#c084fc"/><circle cx="35" cy="18.5" r="2.7" fill="#c084fc"/><path transform="translate(31.5 9)" fill="#fff" d="M0-4.9 1.3-1.3 4.9 0 1.3 1.3 0 4.9-1.3 1.3-4.9 0-1.3-1.3Z"/><circle cx="10.5" cy="29.5" r="4.6" fill="#fff"/></g><g id="bt-badge"><circle cx="20" cy="20" r="20" fill="#020409"/><circle cx="20" cy="20" r="18.4" fill="none" stroke="#c9ced8" stroke-width=".9"/><use href="#bt-mark" transform="translate(5.4 6.2) scale(.72)"/></g></defs></svg>
 
 <!-- 1: cover -->
+<section class="page front">
+  <div class="c-top" style="justify-content: center"><span>PROJE RAPORU · KASIM 2026</span></div>
+  <div class="f-body">
+    <p class="f-label">ETKİNLİK</p>
+    <p class="f-event">NASA Space Apps Challenge 2026</p>
+    <p class="f-label">KONU BAŞLIĞI</p>
+    <h1 class="f-challenge">Planet X and SPHEREx</h1>
+    <p class="f-label">PROJE</p>
+    <p class="f-project"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-mark"/></svg>SPHEREx Blink Tree</p>
+    <p class="f-pitch">Gökyüzünün kızılötesi filmini izle: hareket edeni ve değişeni yakala.</p>
+    <div class="f-team">
+      <img src="figures/kuyruk-team.jpg" alt="">
+      <p class="f-label">TAKIM</p>
+      <p class="f-teamname">Kuyruk Team</p>
+      <p class="f-label">TAKIM ÜYELERİ</p>
+      <ul class="f-members"><li>Cuma Doğan</li></ul>
+    </div>
+  </div>
+  <div class="f-foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span>14–15 Kasım 2026</span></div>
+</section>
+
+<!-- 2: title page -->
 <section class="page cover">
   <div class="c-top"><span>NASA SPACE APPS CHALLENGE 2026</span><span>PROJE RAPORU · KASIM 2026</span></div>
   <div class="c-title">
@@ -185,12 +225,12 @@
   <div class="c-shot"><img src="figures/tr/page.png" alt=""></div>
   <div class="c-foot">
     <div class="team"><img src="figures/kuyruk-team.jpg" alt=""><div><b>TAKIM</b><span class="big">Kuyruk Team</span><span class="who">Cuma Doğan</span></div></div>
-    <div><b>GÖREV</b><span>SPHEREx görüntülerini zaman içinde canlandıran, herkese açık bir web aracı</span></div>
+    <div><b>GÖREV</b><span class="big">Planet X and SPHEREx</span><span class="who">SPHEREx görüntülerini zaman içinde canlandıran, herkese açık bir web aracı</span></div>
     <div><b>KAYNAK KOD</b><span>github.com/CumaDogangithub/nasa_space_apps</span></div>
   </div>
 </section>
 
-<!-- 2: the challenge and our answer -->
+<!-- 3: the challenge and our answer -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -204,10 +244,10 @@
     <p class="cap">Aracın ana ekranı: Barnard Yıldızı, D2 dedektörü (1.10–1.63 µm). Mavi halkalar Gaia’nın bildiği yıldızlardır; pembe ok, yıldızın beş yıl sonra varacağı yeri gösterir. Soldaki haritada yeşil kareler, o ziyaretteki 24 SPHEREx pozundan altısının gökyüzündeki izleridir.</p>
     <div class="boxes"><div><b><i>1</i>Gökyüzü haritası</b>Nereye baktığını ve teleskobun o noktayı nasıl taradığını gösterir; 102 kanal bir kaydırıcıyla gezilir.</div><div><b><i>2</i>Film</b>Aynı gökyüzü parçası, farklı tarihlerde. Fark görünümü değişmeyeni siler; Toplam daha derin bir görüntü verir.</div><div><b><i>3</i>Ayarlar</b>Altı dedektör, görüş alanı, kontrast, Gaia yıldızları ve SPHEREx’in kalite bayrakları.</div><div><b><i>4</i>Spektrum ve ışık eğrisi</b>Bir yıldıza tıklanınca 0.75–5 µm spektrumu ve parlaklığının zamanla değişimi çizilir.</div></div>
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>2</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>3</b> / 8</span></div>
 </section>
 
-<!-- 3: how it works -->
+<!-- 4: how it works -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -237,10 +277,10 @@
     </div>
     <div class="stats" style="position: absolute; left: 0; right: 0; bottom: 0"><div><b>1–5 sn</b><span>arşivde görüntü arama</span></div><div><b>≈ 0.4 MB</b><span>dosya başına okunan veri (3′ alan)</span></div><div><b>5–30 sn</b><span>yeni bir alanın ilk görüntüsü; sonrası önbellekten anında</span></div><div><b>6.15″</b><span>bir SPHEREx pikselinin gökyüzündeki boyutu</span></div></div>
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>3</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>4</b> / 8</span></div>
 </section>
 
-<!-- 4: results, things that move -->
+<!-- 5: results, things that move -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -275,10 +315,10 @@
     </article>
     
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>4</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>5</b> / 8</span></div>
 </section>
 
-<!-- 5: results, things that change -->
+<!-- 6: results, things that change -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -310,10 +350,10 @@
     </table>
     <p class="cap">Toplam 3902 görüntü. “Filmdeki ziyaret”, hedefin varsayılan dedektöründeki kare sayısıdır (WISE 0855 için D6, diğerleri için D2).</p>
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>5</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>6</b> / 8</span></div>
 </section>
 
-<!-- 6: beyond the brief, and is it right? -->
+<!-- 7: beyond the brief, and is it right? -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -331,10 +371,10 @@
     <div class="cards"><div><b>0.4–0.8″</b><strong>Gaia DR3’e göre ortanca konum farkı</strong>Üç 6′ lik test alanında (D2), yıldızların karede olması gereken yer ile göründüğü yer karşılaştırıldı. Fark, 6.15″ lik bir SPHEREx pikselinin küçük bir kesridir.</div><div><b>0.94 · 1.01 · 0.97</b><strong>SPHEREx / 2MASS parlaklık oranı (J,&nbsp;H,&nbsp;Ks)</strong>RW Aurigae yakınındaki beş sıradan yıldız aynı yöntemle ölçülüp 2MASS kataloğuyla karşılaştırıldı.</div><div><b>5–30 sn</b><strong>yeni bir alanın ilk görüntüsü</strong>Süre, alanın genişliğine ve okunan dedektör sayısına bağlıdır. Sonuçlar önbelleğe alınır; ikinci açılış anında gelir.</div></div>
     <p class="note"><b>Dürüst sınırlar.</b> Parlaklıklar hızlı bakış değeridir: ölçüm dairesine giren komşu yıldızlar sonuca eklenir, dairenin dışına taşan ışık için düzeltme yapılmaz. SPHEREx pikseli 6.15″ olduğundan birbirine çok yakın cisimler ayrılamaz. Çok parlak yıldızların çekirdeği doyar; onlarda yalnız halkadaki ışık izlenebilir.</p>
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>6</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>7</b> / 8</span></div>
 </section>
 
-<!-- 7: who it is for, how to run it, what is next -->
+<!-- 8: who it is for, how to run it, what is next -->
 <section class="page">
   <div class="head"><span class="brand"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#bt-badge"/></svg>SPHEREx Blink Tree</span><span>NASA Space Apps Challenge 2026</span></div>
   <div class="body">
@@ -378,7 +418,7 @@
       <img src="figures/kuyruk-team.jpg" alt="">
     </div>
   </div>
-  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>7</b> / 7</span></div>
+  <div class="foot"><span>github.com/CumaDogangithub/nasa_space_apps</span><span><b>8</b> / 8</span></div>
 </section>
 
 </body>

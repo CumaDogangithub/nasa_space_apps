@@ -6,6 +6,19 @@
   "event_caps": "NASA SPACE APPS CHALLENGE 2026",
   "repo": "github.com/CumaDogangithub/nasa_space_apps",
 
+  "front": {
+    "event_label": "ETKİNLİK",
+    "challenge_label": "KONU BAŞLIĞI",
+    "challenge": "Planet X and SPHEREx",
+    "project_label": "PROJE",
+    "team_label": "TAKIM",
+    "members_label": "TAKIM ÜYELERİ",
+    "members": [
+      "Cuma Doğan"
+    ],
+    "date": "14–15 Kasım 2026"
+  },
+
   "cover": {
     "kind": "PROJE RAPORU · KASIM 2026",
     "pitch": "Gökyüzünün kızılötesi filmini izle: hareket edeni ve değişeni yakala.",

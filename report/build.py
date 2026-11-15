@@ -30,7 +30,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parent                # the PDFs are copied here as well
-PAGES = 7
+PAGES = 8                            # the cover, the title page and six pages of content
 BROWSERS = [
     os.environ.get("CHROME", ""),
     "C:/Program Files/Google/Chrome/Application/chrome.exe",

@@ -36,9 +36,9 @@ const BROWSERS = [
  *           or the page elements whose common outline is cut out
  */
 const SHOTS = [
-  // the whole tool
-  { name: 'hero', view: [1180, 860], params: 'target=barnard&gaia=1&play=0&frame=2', wait: ['gaia', 'sky'], clip: 'top' },
-  { name: 'page', view: [1180, 860], params: 'target=epsindb&gaia=1&spec=target&play=0&frame=2', wait: ['gaia', 'spectrum', 'sky'], clip: 'page' },
+  // the whole tool (a little wider than the rest: the settings box sets the height, so a wider window gives a flatter picture)
+  { name: 'hero', view: [1250, 860], params: 'target=barnard&gaia=1&play=0&frame=2', wait: ['gaia', 'sky'], clip: 'top' },
+  { name: 'page', view: [1250, 860], params: 'target=epsindb&gaia=1&spec=target&play=0&frame=2', wait: ['gaia', 'spectrum', 'sky'], clip: 'page' },
 
   // Barnard's Star: first visit, last visit, last minus first
   { name: 'barnard_first', view: [1180, 505], scale: 3, params: 'target=barnard&gaia=1&play=0&frame=0', wait: ['gaia'], clip: ['#viewer'] },
